@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { FaCalendarAlt, FaCashRegister, FaCheckCircle, FaCreditCard, FaDownload, FaEnvelope, FaExclamationTriangle, FaExchangeAlt, FaLeaf, FaMinus, FaMoneyBillWave, FaPlus, FaPrint, FaReceipt, FaSearch, FaShoppingCart, FaTicketAlt, FaTrash, FaUserCheck, FaUserClock, FaWhatsapp } from 'react-icons/fa'
+import { FaCalendarAlt, FaCashRegister, FaCheckCircle, FaCreditCard, FaDownload, FaEnvelope, FaExclamationTriangle, FaExchangeAlt, FaLeaf, FaMinus, FaMoneyBillWave, FaPlus, FaPrint, FaReceipt, FaSearch, FaShoppingCart, FaTicketAlt, FaTrash, FaUserCheck, FaUserClock } from 'react-icons/fa'
 import Swal from 'sweetalert2'
 
 import DashboardLayout from '../layouts/DashboardLayout'
@@ -22,14 +22,12 @@ function Ventas() {
     const [clientePaso, setClientePaso] = useState('Cliente de paso')
     const [metodoPago, setMetodoPago] = useState('')
     const [referenciaPago, setReferenciaPago] = useState('')
-    const [telefonoTicket, setTelefonoTicket] = useState('')
     const [correoTicket, setCorreoTicket] = useState('')
     const [busquedaHistorial, setBusquedaHistorial] = useState('')
     const [filtroHistorial, setFiltroHistorial] = useState('hoy')
     const [ticketProcesandoId, setTicketProcesandoId] = useState(null)
     const [entregaTicket, setEntregaTicket] = useState({
         descarga: true,
-        whatsapp: false,
         correo: false
     })
 
@@ -44,7 +42,6 @@ function Ventas() {
 
         const cliente = clientes.find((item) => item.id_cliente === Number(clienteSeleccionado))
 
-        setTelefonoTicket(cliente?.telefono || '')
         setCorreoTicket(cliente?.correo || '')
     }, [tipoCliente, clienteSeleccionado, clientes])
 
@@ -91,11 +88,9 @@ function Ventas() {
         setClientePaso('Cliente de paso')
         setMetodoPago('')
         setReferenciaPago('')
-        setTelefonoTicket('')
         setCorreoTicket('')
         setEntregaTicket({
             descarga: true,
-            whatsapp: false,
             correo: false
         })
     }
@@ -196,7 +191,6 @@ function Ventas() {
         : clientePaso.trim()
     const ticketSeleccionado = [
         entregaTicket.descarga && 'Descarga',
-        entregaTicket.whatsapp && 'WhatsApp',
         entregaTicket.correo && 'correo'
     ].filter(Boolean)
     const ventaLista = carrito.length > 0
@@ -204,13 +198,12 @@ function Ventas() {
         && Boolean(metodoPago)
         && (metodoPago === 'Efectivo' || Boolean(referenciaPago.trim()))
         && ticketSeleccionado.length > 0
-        && (!entregaTicket.whatsapp || Boolean(telefonoTicket.trim()))
         && (!entregaTicket.correo || Boolean(correoTicket.trim()))
     const pasosVenta = [
         { label: 'Productos', listo: carrito.length > 0 },
         { label: 'Cliente', listo: tipoCliente === 'paso' ? Boolean(clientePaso.trim()) : Boolean(clienteSeleccionado) },
         { label: 'Pago', listo: Boolean(metodoPago) && (metodoPago === 'Efectivo' || Boolean(referenciaPago.trim())) },
-        { label: 'Ticket', listo: ticketSeleccionado.length > 0 && (!entregaTicket.whatsapp || Boolean(telefonoTicket.trim())) && (!entregaTicket.correo || Boolean(correoTicket.trim())) }
+        { label: 'Ticket', listo: ticketSeleccionado.length > 0 && (!entregaTicket.correo || Boolean(correoTicket.trim())) }
     ]
     const unidadesCarrito = carrito.reduce((acc, item) => acc + item.cantidad, 0)
 
@@ -267,13 +260,8 @@ function Ventas() {
             return
         }
 
-        if (!entregaTicket.descarga && !entregaTicket.whatsapp && !entregaTicket.correo) {
+        if (!entregaTicket.descarga && !entregaTicket.correo) {
             Swal.fire('Entrega del ticket', 'Selecciona al menos una forma de entregar el ticket.', 'warning')
-            return
-        }
-
-        if (entregaTicket.whatsapp && !telefonoTicket.trim()) {
-            Swal.fire('Teléfono requerido', 'Agrega un número para enviar el ticket por WhatsApp.', 'warning')
             return
         }
 
@@ -298,7 +286,6 @@ function Ventas() {
                         ...entregaTicket,
                         descarga: true
                     },
-                    telefono_ticket: telefonoTicket,
                     correo_ticket: correoTicket
                 },
                 {
@@ -455,44 +442,6 @@ function Ventas() {
         } catch (error) {
             console.log(error)
             Swal.fire('Error', 'No se pudo enviar el ticket por correo.', 'error')
-        } finally {
-            setTicketProcesandoId(null)
-        }
-    }
-
-    const reenviarTicketWhatsApp = async (venta) => {
-        const result = await Swal.fire({
-            title: `Enviar ticket #${venta.id_venta}`,
-            input: 'text',
-            inputLabel: 'WhatsApp del cliente',
-            inputValue: venta.telefono_ticket || '',
-            inputPlaceholder: 'Ej. 5551234567',
-            confirmButtonText: 'Enviar por WhatsApp',
-            showCancelButton: true,
-            cancelButtonText: 'Cancelar',
-            confirmButtonColor: '#16a34a',
-            inputValidator: (value) => {
-                const limpio = String(value || '').replace(/\D/g, '')
-                if (!limpio) return 'Escribe un teléfono para enviar el ticket'
-                if (limpio.length < 10) return 'El teléfono debe tener al menos 10 dígitos'
-                return null
-            }
-        })
-
-        if (!result.isConfirmed) return
-
-        try {
-            setTicketProcesandoId(venta.id_venta)
-            const response = await generarTicketHistorial(venta, {
-                entrega_ticket: { whatsapp: true },
-                telefono_ticket: result.value
-            })
-            const entrega = response.entregas?.[0]
-
-            Swal.fire(entrega?.enviado ? 'Enviado' : 'Revisar configuración', entrega?.mensaje || 'Solicitud procesada', entrega?.enviado ? 'success' : 'info')
-        } catch (error) {
-            console.log(error)
-            Swal.fire('Error', 'No se pudo enviar el ticket por WhatsApp.', 'error')
         } finally {
             setTicketProcesandoId(null)
         }
@@ -678,10 +627,7 @@ function Ventas() {
                         ) : (
                             <div className="space-y-3">
                                 <input value={clientePaso} onChange={(e) => setClientePaso(e.target.value)} placeholder="Nombre del cliente de paso" className="h-16 w-full rounded-md border border-amber-200 bg-amber-50 px-4 text-lg font-bold text-slate-950 outline-none focus:border-amber-600 focus:bg-white" />
-                                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                    <input value={telefonoTicket} onChange={(e) => setTelefonoTicket(e.target.value)} placeholder="Teléfono WhatsApp" className="h-11 rounded-md border border-slate-300 px-3 outline-none focus:border-amber-600" />
-                                    <input value={correoTicket} onChange={(e) => setCorreoTicket(e.target.value)} placeholder="Correo electrónico" className="h-11 rounded-md border border-slate-300 px-3 outline-none focus:border-amber-600" />
-                                </div>
+                                <input value={correoTicket} onChange={(e) => setCorreoTicket(e.target.value)} placeholder="Correo electrónico para Gmail" className="h-11 w-full rounded-md border border-slate-300 px-3 outline-none focus:border-amber-600" />
                             </div>
                         )}
                     </div>
@@ -733,14 +679,10 @@ function Ventas() {
                         </div>
                     </div>
 
-                    <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                    <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
                         <button type="button" onClick={() => toggleEntrega('descarga')} className={`flex h-12 items-center justify-center gap-2 rounded-lg border text-sm font-bold transition ${entregaTicket.descarga ? 'border-emerald-700 bg-emerald-700 text-white' : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'}`}>
                             <FaDownload />
                             Descargar
-                        </button>
-                        <button type="button" onClick={() => toggleEntrega('whatsapp')} className={`flex h-12 items-center justify-center gap-2 rounded-lg border text-sm font-bold transition ${entregaTicket.whatsapp ? 'border-green-600 bg-green-600 text-white' : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'}`}>
-                            <FaWhatsapp />
-                            WhatsApp
                         </button>
                         <button type="button" onClick={() => toggleEntrega('correo')} className={`flex h-12 items-center justify-center gap-2 rounded-lg border text-sm font-bold transition ${entregaTicket.correo ? 'border-blue-700 bg-blue-700 text-white' : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'}`}>
                             <FaEnvelope />
@@ -748,14 +690,9 @@ function Ventas() {
                         </button>
                     </div>
 
-                    {tipoCliente === 'registrado' && (entregaTicket.whatsapp || entregaTicket.correo) && (
-                        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                            {entregaTicket.whatsapp && (
-                                <input value={telefonoTicket} onChange={(e) => setTelefonoTicket(e.target.value)} placeholder="Teléfono WhatsApp" className="h-11 rounded-md border border-slate-300 px-3 outline-none focus:border-green-600" />
-                            )}
-                            {entregaTicket.correo && (
-                                <input value={correoTicket} onChange={(e) => setCorreoTicket(e.target.value)} placeholder="Correo electrónico" className="h-11 rounded-md border border-slate-300 px-3 outline-none focus:border-blue-700" />
-                            )}
+                    {tipoCliente === 'registrado' && entregaTicket.correo && (
+                        <div className="mt-4">
+                            <input value={correoTicket} onChange={(e) => setCorreoTicket(e.target.value)} placeholder="Correo electrónico" className="h-11 w-full rounded-md border border-slate-300 px-3 outline-none focus:border-blue-700" />
                         </div>
                     )}
                 </div>
@@ -1020,18 +957,6 @@ function Ventas() {
                                                         <FaDownload />
                                                     </button>
                                                 </>
-                                            )}
-                                            {venta.ticket_whatsapp && (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => reenviarTicketWhatsApp(venta)}
-                                                    disabled={ticketProcesandoId === venta.id_venta}
-                                                    className="rounded-md bg-green-600 p-2 text-white transition hover:bg-green-700 disabled:bg-slate-400"
-                                                    aria-label="Enviar ticket por WhatsApp"
-                                                    title={venta.telefono_ticket ? `Enviar a ${venta.telefono_ticket}` : 'Enviar ticket por WhatsApp'}
-                                                >
-                                                    <FaWhatsapp />
-                                                </button>
                                             )}
                                             {venta.ticket_correo && (
                                                 <button

@@ -55,19 +55,9 @@ const Venta = sequelize.define('ventas', {
         defaultValue: true
     },
 
-    ticket_whatsapp: {
-        type: DataTypes.BOOLEAN,
-        defaultValue: false
-    },
-
     ticket_correo: {
         type: DataTypes.BOOLEAN,
         defaultValue: false
-    },
-
-    telefono_ticket: {
-        type: DataTypes.STRING,
-        allowNull: true
     },
 
     correo_ticket: {

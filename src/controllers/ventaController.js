@@ -6,15 +6,9 @@ const Empleado = require('../models/Empleado')
 
 const PDFDocument = require('pdfkit')
 const nodemailer = require('nodemailer')
-const twilio = require('twilio')
 
 const fs = require('fs')
 const path = require('path')
-
-const normalizarTelefonoWhatsApp = (telefono) => {
-    const limpio = String(telefono || '').replace(/\D/g, '')
-    return limpio.length === 10 ? `52${limpio}` : limpio
-}
 
 const escaparHtml = (valor) => String(valor || '')
     .replace(/&/g, '&amp;')
@@ -162,38 +156,6 @@ const enviarCorreoTicket = async ({ correo, rutaPDF, nombrePDF, nombreCliente, v
     })
 
     return { canal: 'correo', enviado: true, mensaje: `Correo enviado a ${correoDestino}` }
-}
-
-const enviarWhatsAppTicket = async ({ telefono, pdfUrl, nombreCliente, venta, total }) => {
-    const telefonoDestinoInput = String(telefono || '').trim()
-    const requerido = [
-        process.env.TWILIO_ACCOUNT_SID,
-        process.env.TWILIO_AUTH_TOKEN,
-        process.env.TWILIO_WHATSAPP_FROM
-    ]
-
-    if (!telefonoDestinoInput) {
-        return { canal: 'whatsapp', enviado: false, mensaje: 'No se proporcionó teléfono' }
-    }
-
-    if (requerido.some((valor) => !valor)) {
-        return { canal: 'whatsapp', enviado: false, mensaje: 'Faltan credenciales de Twilio WhatsApp en .env' }
-    }
-
-    const client = twilio(
-        process.env.TWILIO_ACCOUNT_SID,
-        process.env.TWILIO_AUTH_TOKEN
-    )
-
-    const telefonoDestino = normalizarTelefonoWhatsApp(telefonoDestinoInput)
-
-    await client.messages.create({
-        from: process.env.TWILIO_WHATSAPP_FROM,
-        to: `whatsapp:+${telefonoDestino}`,
-        body: `Hola ${nombreCliente}, gracias por tu compra en Invernadero. Ticket #${venta.id_venta}. Total: $${Number(total).toFixed(2)}. PDF: ${pdfUrl}`
-    })
-
-    return { canal: 'whatsapp', enviado: true, mensaje: `WhatsApp enviado a ${telefonoDestinoInput}` }
 }
 
 const intentarEntrega = async (fn, fallback) => {
@@ -358,7 +320,6 @@ exports.crearVenta = async (req, res) => {
             metodo_pago = 'Efectivo',
             referencia_pago = '',
             entrega_ticket = {},
-            telefono_ticket = '',
             correo_ticket = ''
         } = req.body
 
@@ -414,12 +375,8 @@ exports.crearVenta = async (req, res) => {
         const cliente = await Cliente.findByPk(id_cliente)
         const entregaTicketFinal = {
             descarga: true,
-            whatsapp: Boolean(entrega_ticket.whatsapp),
             correo: Boolean(entrega_ticket.correo)
         }
-        const telefonoTicketFinal = tipo_cliente === 'paso'
-            ? String(telefono_ticket || '').trim()
-            : String(telefono_ticket || cliente?.telefono || '').trim()
         const correoTicketFinal = tipo_cliente === 'paso'
             ? String(correo_ticket || '').trim()
             : String(correo_ticket || cliente?.correo || '').trim()
@@ -435,9 +392,7 @@ exports.crearVenta = async (req, res) => {
             metodo_pago,
             referencia_pago,
             ticket_descarga: entregaTicketFinal.descarga,
-            ticket_whatsapp: entregaTicketFinal.whatsapp,
             ticket_correo: entregaTicketFinal.correo,
-            telefono_ticket: telefonoTicketFinal,
             correo_ticket: correoTicketFinal
 
         })
@@ -724,21 +679,6 @@ if (entregaTicketFinal.correo) {
     )
 }
 
-if (entregaTicketFinal.whatsapp) {
-    entregas.push(
-        await intentarEntrega(
-            () => enviarWhatsAppTicket({
-                telefono: telefonoTicketFinal,
-                pdfUrl,
-                nombreCliente,
-                venta,
-                total
-            }),
-            { canal: 'whatsapp', mensaje: 'No se pudo enviar WhatsApp' }
-        )
-    )
-}
-
 if (entregaTicketFinal.descarga) {
     entregas.push({
         canal: 'descarga',
@@ -807,7 +747,6 @@ exports.obtenerVentas = async (req, res) => {
                 ...data,
                 tipo_cliente: data.tipo_cliente || 'registrado',
                 ticket_descarga: data.ticket_descarga !== false,
-                ticket_whatsapp: Boolean(data.ticket_whatsapp),
                 ticket_correo: Boolean(data.ticket_correo),
                 empleado_nombre: empleado
                     ? `${empleado.nombre || ''} ${empleado.apellido || ''}`.trim() || empleado.usuario
@@ -845,8 +784,7 @@ exports.generarTicketVenta = async (req, res) => {
 
         const {
             entrega_ticket = {},
-            correo_ticket = '',
-            telefono_ticket = ''
+            correo_ticket = ''
         } = req.body
         const {
             venta,
@@ -881,21 +819,6 @@ exports.generarTicketVenta = async (req, res) => {
                         productos: productosTicket
                     }),
                     { canal: 'correo', mensaje: 'No se pudo enviar el correo' }
-                )
-            )
-        }
-
-        if (entrega_ticket.whatsapp) {
-            entregas.push(
-                await intentarEntrega(
-                    () => enviarWhatsAppTicket({
-                        telefono: telefono_ticket || venta.telefono_ticket || cliente?.telefono,
-                        pdfUrl,
-                        nombreCliente,
-                        venta,
-                        total: venta.total
-                    }),
-                    { canal: 'whatsapp', mensaje: 'No se pudo enviar WhatsApp' }
                 )
             )
         }
