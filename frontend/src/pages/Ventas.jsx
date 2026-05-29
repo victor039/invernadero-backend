@@ -295,9 +295,11 @@ function Ventas() {
 
             const descargaLocal = await entregarTicket(response.data)
 
+            const entregasServidor = (response.data.entregas || [])
+                .filter((entrega) => !(descargaLocal && entrega.canal === 'descarga'))
             const entregas = [
                 ...(descargaLocal ? [descargaLocal] : []),
-                ...(response.data.entregas || [])
+                ...entregasServidor
             ]
             const detalleEntregas = entregas
                 .map((entrega) => `${entrega.enviado ? 'OK' : 'Pendiente'}: ${entrega.mensaje}`)
