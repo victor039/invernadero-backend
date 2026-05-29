@@ -18,6 +18,12 @@ const formatoMoneda = new Intl.NumberFormat('es-MX', {
     currency: 'MXN'
 })
 
+const obtenerNombreProducto = (producto) => (
+    producto?.nombre_planta
+    || producto?.nombre_comun
+    || `Planta ${producto?.id_planta || ''}`.trim()
+)
+
 function Reportes() {
     const [productos, setProductos] = useState([])
     const [resumen, setResumen] = useState({
@@ -73,7 +79,7 @@ function Reportes() {
     const productosGrafica = useMemo(
         () => productos.slice(0, 8).map((producto) => ({
             ...producto,
-            etiqueta: `${producto.nombre_planta} #${producto.id_planta}`
+            etiqueta: `${obtenerNombreProducto(producto)} #${producto.id_planta}`
         })),
         [productos]
     )
@@ -88,7 +94,7 @@ function Reportes() {
 
         return (
             <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-xl">
-                <p className="font-bold text-slate-950">{producto.nombre_planta}</p>
+                <p className="font-bold text-slate-950">{obtenerNombreProducto(producto)}</p>
                 <p className="text-xs font-semibold text-slate-500">ID #{producto.id_planta}</p>
                 <div className="mt-2 space-y-1 text-sm">
                     <p className="text-emerald-700">Unidades: <span className="font-bold">{producto.total_vendido}</span></p>
@@ -115,7 +121,7 @@ function Reportes() {
                             <div>
                                 <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Producto líder</p>
                                 <p className="mt-2 text-2xl font-bold text-emerald-300">
-                                    {productoLider ? productoLider.nombre_planta : 'Sin ventas'}
+                                    {productoLider ? obtenerNombreProducto(productoLider) : 'Sin ventas'}
                                 </p>
                                 <p className="mt-1 text-sm text-slate-400">
                                     {productoLider ? `ID #${productoLider.id_planta} · ${productoLider.total_vendido} unidades` : 'Registra ventas para iniciar el ranking'}
@@ -200,7 +206,7 @@ function Reportes() {
                                 <div className="flex items-start justify-between gap-3">
                                     <div className="min-w-0">
                                         <p className="text-xs font-bold uppercase tracking-wide text-emerald-700">#{index + 1} · ID {producto.id_planta}</p>
-                                        <p className="mt-1 truncate font-bold text-slate-950">{producto.nombre_planta}</p>
+                                        <p className="mt-1 truncate font-bold text-slate-950">{obtenerNombreProducto(producto)}</p>
                                         <p className="text-xs text-slate-500">{producto.total_vendido} unidades vendidas</p>
                                     </div>
                                     <span className="rounded-md bg-slate-950 px-3 py-1 text-sm font-bold text-white">
