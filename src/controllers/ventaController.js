@@ -110,15 +110,59 @@ const crearHtmlTicket = ({ nombreCliente, venta, total, productos = [] }) => {
 
 const enviarCorreoTicket = async ({ correo, rutaPDF, nombrePDF, nombreCliente, venta, total, productos = [] }) => {
     const correoDestino = String(correo || '').trim()
+
+    if (!correoDestino) {
+        return { canal: 'correo', enviado: false, mensaje: 'No se proporcionó correo' }
+    }
+
+    if (process.env.RESEND_API_KEY) {
+        const remitente = process.env.RESEND_FROM || process.env.SMTP_FROM || process.env.SMTP_USER
+
+        if (!remitente) {
+            return { canal: 'correo', enviado: false, mensaje: 'Falta RESEND_FROM o SMTP_FROM en .env' }
+        }
+
+        const respuesta = await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                from: process.env.SMTP_FROM_NAME
+                    ? `${process.env.SMTP_FROM_NAME} <${remitente}>`
+                    : remitente,
+                to: [correoDestino],
+                subject: `Ticket de compra #${venta.id_venta} - Invernadero`,
+                text: `Hola ${nombreCliente}, gracias por tu compra.\n\nTicket: #${venta.id_venta}\nTotal: $${Number(total).toFixed(2)}\n\nAdjuntamos tu ticket en PDF.`,
+                html: crearHtmlTicket({
+                    nombreCliente,
+                    venta,
+                    total,
+                    productos
+                }),
+                attachments: [
+                    {
+                        filename: nombrePDF,
+                        content: fs.readFileSync(rutaPDF).toString('base64')
+                    }
+                ]
+            })
+        })
+        const data = await respuesta.json().catch(() => ({}))
+
+        if (!respuesta.ok) {
+            throw new Error(data.message || data.error || 'No se pudo enviar el correo por Resend')
+        }
+
+        return { canal: 'correo', enviado: true, mensaje: `Correo enviado a ${correoDestino}` }
+    }
+
     const requerido = [
         process.env.SMTP_HOST,
         process.env.SMTP_USER,
         process.env.SMTP_PASS
     ]
-
-    if (!correoDestino) {
-        return { canal: 'correo', enviado: false, mensaje: 'No se proporcionó correo' }
-    }
 
     if (requerido.some((valor) => !valor)) {
         return { canal: 'correo', enviado: false, mensaje: 'Faltan credenciales SMTP en .env' }
