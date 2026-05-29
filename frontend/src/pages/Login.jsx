@@ -85,7 +85,9 @@ function Login() {
 
                 {
                     usuario: form.usuario.trim(),
-                    contraseña: form.contraseña
+                    contraseña: form.contraseña,
+                    contrasena: form.contraseña,
+                    password: form.contraseña
                 }
 
             )

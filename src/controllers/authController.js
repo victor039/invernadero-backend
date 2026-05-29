@@ -8,13 +8,8 @@ exports.login = async (req, res) => {
 
     try {
 
-        const {
-
-            usuario,
-
-            contraseña
-
-        } = req.body
+        const usuario = req.body.usuario
+        const contraseña = req.body.contraseña || req.body.contrasena || req.body.password
 
         const empleado = await Empleado.findOne({
 
