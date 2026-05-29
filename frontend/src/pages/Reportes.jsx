@@ -42,10 +42,32 @@ function Reportes() {
 
     const obtenerProductos = async () => {
         const token = localStorage.getItem('token')
-        const response = await api.get('/reportes/productos-mas-vendidos', {
-            headers: { Authorization: `Bearer ${token}` }
-        })
-        setProductos(response.data)
+        const [productosResponse, plantasResponse] = await Promise.all([
+            api.get('/reportes/productos-mas-vendidos', {
+                headers: { Authorization: `Bearer ${token}` }
+            }),
+            api.get('/plantas')
+        ])
+        const plantasPorId = new Map(
+            plantasResponse.data.map((planta) => [Number(planta.id_planta), planta])
+        )
+        const productosNormalizados = productosResponse.data.map((producto) => {
+            const idPlanta = Number(producto.id_planta)
+            const planta = plantasPorId.get(idPlanta)
+            const unidades = Number(producto.total_vendido || 0)
+            const ingresos = Number(producto.total_ingresos || 0) || unidades * Number(planta?.precio || 0)
+
+            return {
+                ...producto,
+                id_planta: idPlanta,
+                nombre_planta: producto.nombre_planta || planta?.nombre_comun || `Planta ${idPlanta}`,
+                stock: Number(producto.stock ?? planta?.stock ?? 0),
+                total_vendido: unidades,
+                total_ingresos: ingresos
+            }
+        }).sort((a, b) => Number(b.total_vendido || 0) - Number(a.total_vendido || 0))
+
+        setProductos(productosNormalizados)
     }
 
     const productosGrafica = useMemo(
@@ -66,8 +88,8 @@ function Reportes() {
 
         return (
             <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-xl">
-                <p className="font-bold text-slate-950">{producto.nombre_planta} #{producto.id_planta}</p>
-                <p className="text-xs text-slate-500">{producto.nombre_cientifico || 'Sin nombre científico'}</p>
+                <p className="font-bold text-slate-950">{producto.nombre_planta}</p>
+                <p className="text-xs font-semibold text-slate-500">ID #{producto.id_planta}</p>
                 <div className="mt-2 space-y-1 text-sm">
                     <p className="text-emerald-700">Unidades: <span className="font-bold">{producto.total_vendido}</span></p>
                     <p className="text-slate-700">Ingresos: <span className="font-bold">{formatoMoneda.format(Number(producto.total_ingresos || 0))}</span></p>
@@ -179,7 +201,7 @@ function Reportes() {
                                     <div className="min-w-0">
                                         <p className="text-xs font-bold uppercase tracking-wide text-emerald-700">#{index + 1} · ID {producto.id_planta}</p>
                                         <p className="mt-1 truncate font-bold text-slate-950">{producto.nombre_planta}</p>
-                                        <p className="text-xs text-slate-500">{producto.nombre_cientifico || 'Sin nombre científico'}</p>
+                                        <p className="text-xs text-slate-500">{producto.total_vendido} unidades vendidas</p>
                                     </div>
                                     <span className="rounded-md bg-slate-950 px-3 py-1 text-sm font-bold text-white">
                                         {producto.total_vendido}
@@ -188,7 +210,7 @@ function Reportes() {
                                 <div className="mt-3 h-2 rounded-full bg-slate-100">
                                     <div
                                         className="h-2 rounded-full bg-emerald-600"
-                                        style={{ width: `${Math.max(8, (Number(producto.total_vendido || 0) / Number(productoLider?.total_vendido || 1)) * 100)}%` }}
+                                        style={{ width: `${Math.min(100, Math.max(8, (Number(producto.total_vendido || 0) / Number(productoLider?.total_vendido || 1)) * 100))}%` }}
                                     />
                                 </div>
                                 <p className="mt-2 text-xs font-semibold text-slate-500">
