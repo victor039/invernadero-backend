@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { FaAddressCard, FaEdit, FaEnvelope, FaMapMarkerAlt, FaPhoneAlt, FaPlus, FaSearch, FaTrash, FaUserTie } from 'react-icons/fa'
 import Swal from 'sweetalert2'
 
@@ -20,6 +20,7 @@ function Clientes() {
     const [errores, setErrores] = useState({})
     const [editandoId, setEditandoId] = useState(null)
     const [guardando, setGuardando] = useState(false)
+    const formRef = useRef(null)
 
     const token = localStorage.getItem('token')
     const headers = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token])
@@ -94,6 +95,10 @@ function Clientes() {
             telefono: cliente.telefono || '',
             direccion: cliente.direccion || ''
         })
+
+        setTimeout(() => {
+            formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }, 100)
     }
 
     const eliminar = async (cliente) => {
@@ -159,7 +164,7 @@ function Clientes() {
             </section>
 
             <section className="space-y-6">
-                <form onSubmit={guardar} autoComplete="off" className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                <form ref={formRef} onSubmit={guardar} autoComplete="off" className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
                     <div className="mb-5 flex flex-col justify-between gap-3 md:flex-row md:items-center">
                         <div>
                             <p className="text-sm font-semibold uppercase tracking-[0.18em] text-cyan-700">

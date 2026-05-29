@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { FaBuilding, FaEdit, FaEnvelope, FaMapMarkerAlt, FaPhoneAlt, FaPlus, FaSearch, FaShippingFast, FaTrash, FaUserCog } from 'react-icons/fa'
 import Swal from 'sweetalert2'
 
@@ -20,6 +20,7 @@ function Proveedores() {
     const [errores, setErrores] = useState({})
     const [editandoId, setEditandoId] = useState(null)
     const [guardando, setGuardando] = useState(false)
+    const formRef = useRef(null)
 
     const token = localStorage.getItem('token')
     const headers = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token])
@@ -94,6 +95,10 @@ function Proveedores() {
             telefono: proveedor.telefono || '',
             direccion: proveedor.direccion || ''
         })
+
+        setTimeout(() => {
+            formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }, 100)
     }
 
     const eliminar = async (proveedor) => {
@@ -159,7 +164,7 @@ function Proveedores() {
             </section>
 
             <section className="space-y-6">
-                <form onSubmit={guardar} autoComplete="off" className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                <form ref={formRef} onSubmit={guardar} autoComplete="off" className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
                     <div className="mb-5 flex flex-col justify-between gap-3 md:flex-row md:items-center">
                         <div>
                             <p className="text-sm font-semibold uppercase tracking-[0.18em] text-indigo-700">

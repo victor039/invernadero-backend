@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Swal from 'sweetalert2'
 import { FaEdit, FaPlus, FaTrash, FaUsers } from 'react-icons/fa'
 
@@ -22,6 +22,7 @@ function Empleados() {
     const [errores, setErrores] = useState({})
     const [editandoId, setEditandoId] = useState(null)
     const [guardando, setGuardando] = useState(false)
+    const formRef = useRef(null)
 
     const token = localStorage.getItem('token')
     const headers = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token])
@@ -104,6 +105,10 @@ function Empleados() {
             contraseña: '',
             id_rol: String(empleado.id_rol || '2')
         })
+
+        setTimeout(() => {
+            formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }, 100)
     }
 
     const eliminar = async (empleado) => {
@@ -159,7 +164,7 @@ function Empleados() {
                 </div>
             </section>
 
-            <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+            <section ref={formRef} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
                 <div className="mb-5 flex flex-col justify-between gap-3 md:flex-row md:items-center">
                     <h2 className="text-xl font-bold text-slate-950">{editandoId ? 'Editar empleado' : 'Nuevo empleado'}</h2>
                     <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Buscar empleado" className="h-11 rounded-md border border-slate-300 px-3 text-sm outline-none focus:border-emerald-600" />
