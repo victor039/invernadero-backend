@@ -216,6 +216,7 @@ const generarTicketPDF = async ({
     nombreCliente,
     nombreEmpleado,
     id_empleado,
+    tipo_cliente = 'registrado',
     metodo_pago = 'Registrado',
     referencia_pago = ''
 }) => {
@@ -257,7 +258,7 @@ const generarTicketPDF = async ({
     doc.fontSize(10).fillColor('#475569').text('Cliente', 65, infoY + 16)
         .fillColor('#0f172a').fontSize(12).text(nombreCliente, 65, infoY + 31, { width: 210 })
     doc.fontSize(10).fillColor('#475569').text('Tipo', 65, infoY + 56)
-        .fillColor('#0f172a').text('Cliente registrado', 65, infoY + 70)
+        .fillColor('#0f172a').text(tipo_cliente === 'paso' ? 'Cliente de paso' : 'Cliente registrado', 65, infoY + 70)
     doc.fontSize(10).fillColor('#475569').text('Atendido por', 300, infoY + 16)
         .fillColor('#0f172a').fontSize(12).text(`${nombreEmpleado} (ID ${id_empleado})`, 300, infoY + 31, { width: 220 })
     doc.fontSize(10).fillColor('#475569').text('Pago', 300, infoY + 56)
@@ -335,7 +336,10 @@ const obtenerDatosTicketVenta = async (idVenta) => {
             subtotal: Number(data.subtotal || 0)
         }
     })
-    const nombreCliente = cliente ? `${cliente.nombre || ''} ${cliente.apellido || ''}`.trim() : `Cliente #${venta.id_cliente}`
+    const ventaData = venta.toJSON ? venta.toJSON() : venta
+    const nombreCliente = ventaData.tipo_cliente === 'paso'
+        ? (ventaData.cliente_paso || 'Cliente de paso')
+        : (cliente ? `${cliente.nombre || ''} ${cliente.apellido || ''}`.trim() : `Cliente #${venta.id_cliente}`)
     const nombreEmpleado = empleado ? `${empleado.nombre || ''} ${empleado.apellido || ''}`.trim() || empleado.usuario : `Empleado #${venta.id_empleado}`
 
     return { venta, cliente, empleado, productosTicket, nombreCliente, nombreEmpleado }
@@ -407,11 +411,34 @@ exports.crearVenta = async (req, res) => {
         // CREAR VENTA
         // =========================
 
+        const cliente = await Cliente.findByPk(id_cliente)
+        const entregaTicketFinal = {
+            descarga: true,
+            whatsapp: Boolean(entrega_ticket.whatsapp),
+            correo: Boolean(entrega_ticket.correo)
+        }
+        const telefonoTicketFinal = tipo_cliente === 'paso'
+            ? String(telefono_ticket || '').trim()
+            : String(telefono_ticket || cliente?.telefono || '').trim()
+        const correoTicketFinal = tipo_cliente === 'paso'
+            ? String(correo_ticket || '').trim()
+            : String(correo_ticket || cliente?.correo || '').trim()
+        const clientePasoFinal = String(cliente_paso || 'Cliente de paso').trim() || 'Cliente de paso'
+
         const venta = await Venta.create({
 
             id_cliente,
             id_empleado,
-            total
+            total,
+            tipo_cliente,
+            cliente_paso: tipo_cliente === 'paso' ? clientePasoFinal : null,
+            metodo_pago,
+            referencia_pago,
+            ticket_descarga: entregaTicketFinal.descarga,
+            ticket_whatsapp: entregaTicketFinal.whatsapp,
+            ticket_correo: entregaTicketFinal.correo,
+            telefono_ticket: telefonoTicketFinal,
+            correo_ticket: correoTicketFinal
 
         })
 
@@ -450,16 +477,12 @@ exports.crearVenta = async (req, res) => {
         // CLIENTE
         // =========================
 
-        const cliente = await Cliente.findByPk(
-            id_cliente
-        )
-
         const empleado = await Empleado.findByPk(
             id_empleado
         )
 
         const nombreCliente = tipo_cliente === 'paso'
-            ? cliente_paso
+            ? clientePasoFinal
             : (cliente ? `${cliente.nombre} ${cliente.apellido || ''}`.trim() : 'Cliente general')
 
         const nombreEmpleado = empleado
@@ -684,11 +707,11 @@ await new Promise((resolve, reject) => {
 const pdfUrl = `${obtenerBaseUrl(req)}/tickets/${nombrePDF}`
 const entregas = []
 
-if (entrega_ticket.correo) {
+if (entregaTicketFinal.correo) {
     entregas.push(
         await intentarEntrega(
             () => enviarCorreoTicket({
-                correo: correo_ticket || cliente?.correo,
+                correo: correoTicketFinal,
                 rutaPDF,
                 nombrePDF,
                 nombreCliente,
@@ -701,11 +724,11 @@ if (entrega_ticket.correo) {
     )
 }
 
-if (entrega_ticket.whatsapp) {
+if (entregaTicketFinal.whatsapp) {
     entregas.push(
         await intentarEntrega(
             () => enviarWhatsAppTicket({
-                telefono: telefono_ticket || cliente?.telefono,
+                telefono: telefonoTicketFinal,
                 pdfUrl,
                 nombreCliente,
                 venta,
@@ -716,7 +739,7 @@ if (entrega_ticket.whatsapp) {
     )
 }
 
-if (entrega_ticket.descarga) {
+if (entregaTicketFinal.descarga) {
     entregas.push({
         canal: 'descarga',
         enviado: true,
@@ -778,16 +801,23 @@ exports.obtenerVentas = async (req, res) => {
             const data = venta.toJSON()
             const empleado = empleadosPorId.get(Number(data.id_empleado))
             const cliente = clientesPorId.get(Number(data.id_cliente))
+            const esClientePaso = data.tipo_cliente === 'paso'
 
             return {
                 ...data,
+                tipo_cliente: data.tipo_cliente || 'registrado',
+                ticket_descarga: data.ticket_descarga !== false,
+                ticket_whatsapp: Boolean(data.ticket_whatsapp),
+                ticket_correo: Boolean(data.ticket_correo),
                 empleado_nombre: empleado
                     ? `${empleado.nombre || ''} ${empleado.apellido || ''}`.trim() || empleado.usuario
                     : `Empleado #${data.id_empleado}`,
                 empleado_rol: empleado ? Number(empleado.id_rol) : null,
-                cliente_nombre: cliente
+                cliente_nombre: esClientePaso
+                    ? (data.cliente_paso || 'Cliente de paso')
+                    : (cliente
                     ? `${cliente.nombre || ''} ${cliente.apellido || ''}`.trim()
-                    : `Cliente #${data.id_cliente}`
+                    : `Cliente #${data.id_cliente}`)
             }
         })
 
@@ -830,7 +860,10 @@ exports.generarTicketVenta = async (req, res) => {
             productosTicket,
             nombreCliente,
             nombreEmpleado,
-            id_empleado: venta.id_empleado
+            id_empleado: venta.id_empleado,
+            tipo_cliente: venta.tipo_cliente,
+            metodo_pago: venta.metodo_pago || 'Registrado',
+            referencia_pago: venta.referencia_pago || ''
         })
         const pdfUrl = `${obtenerBaseUrl(req)}/tickets/${nombrePDF}`
         const entregas = []
@@ -839,7 +872,7 @@ exports.generarTicketVenta = async (req, res) => {
             entregas.push(
                 await intentarEntrega(
                     () => enviarCorreoTicket({
-                        correo: correo_ticket || cliente?.correo,
+                        correo: correo_ticket || venta.correo_ticket || cliente?.correo,
                         rutaPDF,
                         nombrePDF,
                         nombreCliente,
@@ -856,7 +889,7 @@ exports.generarTicketVenta = async (req, res) => {
             entregas.push(
                 await intentarEntrega(
                     () => enviarWhatsAppTicket({
-                        telefono: telefono_ticket || cliente?.telefono,
+                        telefono: telefono_ticket || venta.telefono_ticket || cliente?.telefono,
                         pdfUrl,
                         nombreCliente,
                         venta,

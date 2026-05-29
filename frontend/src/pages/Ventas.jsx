@@ -28,7 +28,7 @@ function Ventas() {
     const [filtroHistorial, setFiltroHistorial] = useState('hoy')
     const [ticketProcesandoId, setTicketProcesandoId] = useState(null)
     const [entregaTicket, setEntregaTicket] = useState({
-        descarga: false,
+        descarga: true,
         whatsapp: false,
         correo: false
     })
@@ -47,6 +47,15 @@ function Ventas() {
         setTelefonoTicket(cliente?.telefono || '')
         setCorreoTicket(cliente?.correo || '')
     }, [tipoCliente, clienteSeleccionado, clientes])
+
+    useEffect(() => {
+        if (tipoCliente !== 'paso') return
+
+        setEntregaTicket((actual) => ({
+            ...actual,
+            descarga: true
+        }))
+    }, [tipoCliente])
 
     const obtenerPlantas = async () => {
         const response = await api.get('/plantas')
@@ -85,7 +94,7 @@ function Ventas() {
         setTelefonoTicket('')
         setCorreoTicket('')
         setEntregaTicket({
-            descarga: false,
+            descarga: true,
             whatsapp: false,
             correo: false
         })
@@ -285,7 +294,10 @@ function Ventas() {
                     cliente_paso: clientePaso,
                     metodo_pago: metodoPago,
                     referencia_pago: referenciaPago,
-                    entrega_ticket: entregaTicket,
+                    entrega_ticket: {
+                        ...entregaTicket,
+                        descarga: true
+                    },
                     telefono_ticket: telefonoTicket,
                     correo_ticket: correoTicket
                 },
@@ -416,6 +428,7 @@ function Ventas() {
             title: `Enviar ticket #${venta.id_venta}`,
             input: 'email',
             inputLabel: 'Correo del cliente',
+            inputValue: venta.correo_ticket || '',
             inputPlaceholder: 'cliente@correo.com',
             confirmButtonText: 'Enviar por Gmail/correo',
             showCancelButton: true,
@@ -452,6 +465,7 @@ function Ventas() {
             title: `Enviar ticket #${venta.id_venta}`,
             input: 'text',
             inputLabel: 'WhatsApp del cliente',
+            inputValue: venta.telefono_ticket || '',
             inputPlaceholder: 'Ej. 5551234567',
             confirmButtonText: 'Enviar por WhatsApp',
             showCancelButton: true,
@@ -956,7 +970,12 @@ function Ventas() {
                                     </td>
                                     <td className="px-4 py-4">
                                         <p className="font-semibold text-slate-900">{venta.cliente_nombre || `Cliente #${venta.id_cliente}`}</p>
-                                        <p className="text-xs text-slate-500">ID #{venta.id_cliente}</p>
+                                        <div className="mt-1 flex flex-wrap items-center gap-2">
+                                            <span className={`rounded-full px-2 py-1 text-[11px] font-bold ${venta.tipo_cliente === 'paso' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                                                {venta.tipo_cliente === 'paso' ? 'Cliente de paso' : 'Registrado'}
+                                            </span>
+                                            <span className="text-xs text-slate-500">ID #{venta.id_cliente}</span>
+                                        </div>
                                     </td>
                                     <td className="px-4 py-4">
                                         <p className="font-semibold text-slate-900">{venta.empleado_nombre || `Empleado #${venta.id_empleado}`}</p>
@@ -977,47 +996,55 @@ function Ventas() {
                                         <p className="text-lg font-bold text-emerald-700">{formatoMoneda.format(Number(venta.total || 0))}</p>
                                     </td>
                                     <td className="px-4 py-4">
-                                        <div className="flex justify-end gap-2">
-                                            <button
-                                                type="button"
-                                                onClick={() => abrirTicketImpresion(venta)}
-                                                disabled={ticketProcesandoId === venta.id_venta}
-                                                className="rounded-md bg-slate-950 p-2 text-white transition hover:bg-slate-800 disabled:bg-slate-400"
-                                                aria-label="Reimprimir ticket"
-                                                title="Reimprimir ticket"
-                                            >
-                                                <FaPrint />
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => descargarTicketHistorial(venta)}
-                                                disabled={ticketProcesandoId === venta.id_venta}
-                                                className="rounded-md bg-emerald-700 p-2 text-white transition hover:bg-emerald-800 disabled:bg-slate-400"
-                                                aria-label="Descargar ticket"
-                                                title="Descargar ticket"
-                                            >
-                                                <FaDownload />
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => reenviarTicketWhatsApp(venta)}
-                                                disabled={ticketProcesandoId === venta.id_venta}
-                                                className="rounded-md bg-green-600 p-2 text-white transition hover:bg-green-700 disabled:bg-slate-400"
-                                                aria-label="Enviar ticket por WhatsApp"
-                                                title="Enviar ticket por WhatsApp"
-                                            >
-                                                <FaWhatsapp />
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => reenviarTicketCorreo(venta)}
-                                                disabled={ticketProcesandoId === venta.id_venta}
-                                                className="rounded-md bg-blue-700 p-2 text-white transition hover:bg-blue-800 disabled:bg-slate-400"
-                                                aria-label="Enviar ticket por correo"
-                                                title="Enviar ticket por correo"
-                                            >
-                                                <FaEnvelope />
-                                            </button>
+                                        <div className="flex flex-wrap justify-end gap-2">
+                                            {venta.ticket_descarga !== false && (
+                                                <>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => abrirTicketImpresion(venta)}
+                                                        disabled={ticketProcesandoId === venta.id_venta}
+                                                        className="rounded-md bg-slate-950 p-2 text-white transition hover:bg-slate-800 disabled:bg-slate-400"
+                                                        aria-label="Reimprimir ticket"
+                                                        title="Reimprimir ticket"
+                                                    >
+                                                        <FaPrint />
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => descargarTicketHistorial(venta)}
+                                                        disabled={ticketProcesandoId === venta.id_venta}
+                                                        className="rounded-md bg-emerald-700 p-2 text-white transition hover:bg-emerald-800 disabled:bg-slate-400"
+                                                        aria-label="Descargar ticket"
+                                                        title="Descargar ticket"
+                                                    >
+                                                        <FaDownload />
+                                                    </button>
+                                                </>
+                                            )}
+                                            {venta.ticket_whatsapp && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => reenviarTicketWhatsApp(venta)}
+                                                    disabled={ticketProcesandoId === venta.id_venta}
+                                                    className="rounded-md bg-green-600 p-2 text-white transition hover:bg-green-700 disabled:bg-slate-400"
+                                                    aria-label="Enviar ticket por WhatsApp"
+                                                    title={venta.telefono_ticket ? `Enviar a ${venta.telefono_ticket}` : 'Enviar ticket por WhatsApp'}
+                                                >
+                                                    <FaWhatsapp />
+                                                </button>
+                                            )}
+                                            {venta.ticket_correo && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => reenviarTicketCorreo(venta)}
+                                                    disabled={ticketProcesandoId === venta.id_venta}
+                                                    className="rounded-md bg-blue-700 p-2 text-white transition hover:bg-blue-800 disabled:bg-slate-400"
+                                                    aria-label="Enviar ticket por correo"
+                                                    title={venta.correo_ticket ? `Enviar a ${venta.correo_ticket}` : 'Enviar ticket por correo'}
+                                                >
+                                                    <FaEnvelope />
+                                                </button>
+                                            )}
                                         </div>
                                     </td>
                                 </tr>
