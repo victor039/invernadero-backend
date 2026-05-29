@@ -135,24 +135,36 @@ exports.productosMasVendidos = async (req, res) => {
 
     try {
 
-        const productos = await DetalleVenta.findAll({
-
+        const ventasPorPlanta = await DetalleVenta.findAll({
             attributes: [
-
                 'id_planta',
-
-                [
-                    Sequelize.fn(
-                        'SUM',
-                        Sequelize.col('cantidad')
-                    ),
-                    'total_vendido'
-                ]
-
+                [Sequelize.fn('SUM', Sequelize.col('cantidad')), 'total_vendido'],
+                [Sequelize.fn('SUM', Sequelize.col('subtotal')), 'total_ingresos']
             ],
+            group: ['id_planta'],
+            order: [[Sequelize.literal('total_vendido'), 'DESC']]
+        })
 
-            group: ['id_planta']
+        const plantas = await Planta.findAll({
+            attributes: ['id_planta', 'nombre_comun', 'nombre_cientifico', 'stock']
+        })
 
+        const plantasPorId = new Map(
+            plantas.map((planta) => [Number(planta.id_planta), planta])
+        )
+
+        const productos = ventasPorPlanta.map((item) => {
+            const data = item.toJSON()
+            const planta = plantasPorId.get(Number(data.id_planta))
+
+            return {
+                id_planta: Number(data.id_planta),
+                nombre_planta: planta?.nombre_comun || `Planta #${data.id_planta}`,
+                nombre_cientifico: planta?.nombre_cientifico || '',
+                stock: Number(planta?.stock || 0),
+                total_vendido: Number(data.total_vendido || 0),
+                total_ingresos: Number(data.total_ingresos || 0)
+            }
         })
 
         res.json(productos)
@@ -161,7 +173,8 @@ exports.productosMasVendidos = async (req, res) => {
 
         res.status(500).json({
 
-            mensaje: 'Error al obtener productos'
+            mensaje: 'Error al obtener productos',
+            error: error.message
 
         })
 
