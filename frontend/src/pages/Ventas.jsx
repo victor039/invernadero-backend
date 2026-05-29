@@ -304,12 +304,28 @@ function Ventas() {
             const detalleEntregas = entregas
                 .map((entrega) => `${entrega.enviado ? 'OK' : 'Pendiente'}: ${entrega.mensaje}`)
                 .join('<br />')
+            const correoFallido = entregas.find((entrega) => entrega.canal === 'correo' && entrega.enviado === false)
+            const abrirGmail = correoFallido && correoTicket.trim()
+                ? await Swal.fire({
+                    icon: 'info',
+                    title: 'Venta realizada',
+                    html: `${detalleEntregas}<br /><br /><strong>Podemos abrir Gmail con el ticket listo para enviar.</strong>`,
+                    confirmButtonText: 'Abrir Gmail',
+                    showCancelButton: true,
+                    cancelButtonText: 'Solo cerrar',
+                    confirmButtonColor: '#1d4ed8'
+                })
+                : null
 
-            Swal.fire({
-                icon: entregas.some((entrega) => entrega.enviado === false) ? 'info' : 'success',
-                title: 'Venta realizada',
-                html: detalleEntregas || 'Se registró la venta correctamente.'
-            })
+            if (abrirGmail?.isConfirmed) {
+                abrirGmailWeb(correoTicket, response.data.venta?.id_venta, response.data.pdf)
+            } else if (!abrirGmail) {
+                Swal.fire({
+                    icon: entregas.some((entrega) => entrega.enviado === false) ? 'info' : 'success',
+                    title: 'Venta realizada',
+                    html: detalleEntregas || 'Se registró la venta correctamente.'
+                })
+            }
 
             limpiarFormularioVenta()
             obtenerVentas()
@@ -380,6 +396,21 @@ function Ventas() {
         return response.data
     }
 
+    const abrirGmailWeb = (correo, ventaId, pdfUrl) => {
+        const asunto = `Ticket de compra #${ventaId} - Invernadero`
+        const cuerpo = [
+            'Hola, gracias por tu compra en Invernadero.',
+            '',
+            `Te compartimos tu ticket de compra #${ventaId}.`,
+            `PDF: ${pdfUrl}`,
+            '',
+            'Saludos.'
+        ].join('\n')
+        const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(correo)}&su=${encodeURIComponent(asunto)}&body=${encodeURIComponent(cuerpo)}`
+
+        window.open(gmailUrl, '_blank', 'noopener,noreferrer')
+    }
+
     const abrirTicketImpresion = async (venta) => {
         try {
             setTicketProcesandoId(venta.id_venta)
@@ -440,7 +471,24 @@ function Ventas() {
             })
             const entrega = response.entregas?.[0]
 
-            Swal.fire(entrega?.enviado ? 'Enviado' : 'Revisar configuración', entrega?.mensaje || 'Solicitud procesada', entrega?.enviado ? 'success' : 'info')
+            if (entrega?.enviado === false) {
+                const abrirGmail = await Swal.fire({
+                    icon: 'info',
+                    title: 'Abrir Gmail',
+                    html: `${entrega.mensaje || 'No se pudo enviar desde el servidor.'}<br /><br />Puedes abrir Gmail con el ticket listo para enviar.`,
+                    confirmButtonText: 'Abrir Gmail',
+                    showCancelButton: true,
+                    cancelButtonText: 'Cancelar',
+                    confirmButtonColor: '#1d4ed8'
+                })
+
+                if (abrirGmail.isConfirmed) {
+                    abrirGmailWeb(result.value, venta.id_venta, response.pdf)
+                }
+                return
+            }
+
+            Swal.fire('Enviado', entrega?.mensaje || 'Solicitud procesada', 'success')
         } catch (error) {
             console.log(error)
             Swal.fire('Error', 'No se pudo enviar el ticket por correo.', 'error')
