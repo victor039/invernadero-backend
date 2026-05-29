@@ -3,6 +3,7 @@ import { FaBoxOpen, FaChartBar, FaExclamationTriangle, FaLeaf, FaReceipt, FaTrop
 import {
     Bar,
     BarChart,
+    Cell,
     CartesianGrid,
     ResponsiveContainer,
     Tooltip,
@@ -17,6 +18,9 @@ const formatoMoneda = new Intl.NumberFormat('es-MX', {
     style: 'currency',
     currency: 'MXN'
 })
+
+const API_ORIGIN = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').replace(/\/api\/?$/, '')
+const coloresBarras = ['#047857', '#0f766e', '#2563eb', '#7c3aed', '#ca8a04', '#dc2626', '#0891b2', '#475569']
 
 const obtenerNombreProducto = (producto) => (
     producto?.nombre_planta
@@ -67,6 +71,7 @@ function Reportes() {
                 ...producto,
                 id_planta: idPlanta,
                 nombre_planta: producto.nombre_planta || planta?.nombre_comun || `Planta ${idPlanta}`,
+                imagen: producto.imagen || planta?.imagen || '',
                 stock: Number(producto.stock ?? planta?.stock ?? 0),
                 total_vendido: unidades,
                 total_ingresos: ingresos
@@ -86,6 +91,11 @@ function Reportes() {
 
     const productoLider = productos[0]
     const unidadesVendidas = productos.reduce((total, producto) => total + Number(producto.total_vendido || 0), 0)
+    const ingresosProductos = productos.reduce((total, producto) => total + Number(producto.total_ingresos || 0), 0)
+    const participacionLider = productoLider && unidadesVendidas > 0
+        ? Math.round((Number(productoLider.total_vendido || 0) / unidadesVendidas) * 100)
+        : 0
+    const imagenProducto = (producto) => producto?.imagen ? `${API_ORIGIN}/uploads/${producto.imagen}` : null
 
     const tooltipProductos = ({ active, payload }) => {
         if (!active || !payload?.length) return null
@@ -116,8 +126,19 @@ function Reportes() {
                             Lectura rápida de ventas, inventario y productos con mejor movimiento, mostrando nombre e identificador para ubicar cada planta sin adivinar.
                         </p>
                     </div>
-                    <div className="rounded-lg border border-white/10 bg-white/5 p-5">
-                        <div className="flex items-center justify-between gap-4">
+                    <div className="overflow-hidden rounded-lg border border-white/10 bg-white/5">
+                        <div className="grid grid-cols-[96px_1fr]">
+                            <div className="h-full min-h-32 bg-slate-800">
+                                {imagenProducto(productoLider) ? (
+                                    <img src={imagenProducto(productoLider)} alt={obtenerNombreProducto(productoLider)} className="h-full w-full object-cover" />
+                                ) : (
+                                    <div className="flex h-full w-full items-center justify-center text-2xl text-emerald-300">
+                                        <FaLeaf />
+                                    </div>
+                                )}
+                            </div>
+                            <div className="p-5">
+                        <div className="flex items-start justify-between gap-4">
                             <div>
                                 <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Producto líder</p>
                                 <p className="mt-2 text-2xl font-bold text-emerald-300">
@@ -131,12 +152,24 @@ function Reportes() {
                                 <FaTrophy />
                             </div>
                         </div>
+                        <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                            <div className="rounded-md bg-white/10 p-3">
+                                <p className="text-slate-400">Participación</p>
+                                <p className="mt-1 text-xl font-bold text-white">{participacionLider}%</p>
+                            </div>
+                            <div className="rounded-md bg-white/10 p-3">
+                                <p className="text-slate-400">Ventas del ranking</p>
+                                <p className="mt-1 text-xl font-bold text-white">{formatoMoneda.format(ingresosProductos)}</p>
+                            </div>
+                        </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div className="h-2 bg-gradient-to-r from-emerald-500 via-cyan-500 to-violet-600" />
             </section>
 
-            <section className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-4">
+            <section className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
                 <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
                     <FaReceipt className="text-blue-700" />
                     <p className="mt-4 text-sm font-semibold text-slate-500">Ventas</p>
@@ -157,7 +190,7 @@ function Reportes() {
                     <p className="mt-4 text-sm font-semibold text-slate-500">Stock bajo</p>
                     <p className="mt-2 text-3xl font-bold text-red-700">{resumen.stockBajo.length}</p>
                 </div>
-                <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-lg md:col-span-4 xl:col-span-1">
+                <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
                     <FaLeaf className="text-teal-700" />
                     <p className="mt-4 text-sm font-semibold text-slate-500">Unidades vendidas</p>
                     <p className="mt-2 text-3xl font-bold text-slate-950">{unidadesVendidas}</p>
@@ -189,7 +222,11 @@ function Reportes() {
                                 />
                                 <YAxis />
                                 <Tooltip content={tooltipProductos} />
-                                <Bar dataKey="total_vendido" fill="#047857" radius={[4, 4, 0, 0]} />
+                                <Bar dataKey="total_vendido" radius={[4, 4, 0, 0]}>
+                                    {productosGrafica.map((producto, index) => (
+                                        <Cell key={producto.id_planta} fill={coloresBarras[index % coloresBarras.length]} />
+                                    ))}
+                                </Bar>
                             </BarChart>
                         </ResponsiveContainer>
                     </div>
@@ -204,10 +241,19 @@ function Reportes() {
                         ) : productos.slice(0, 6).map((producto, index) => (
                             <div key={producto.id_planta} className="rounded-lg border border-slate-200 p-3 transition hover:border-emerald-200 hover:bg-emerald-50/40">
                                 <div className="flex items-start justify-between gap-3">
-                                    <div className="min-w-0">
-                                        <p className="text-xs font-bold uppercase tracking-wide text-emerald-700">#{index + 1} · ID {producto.id_planta}</p>
-                                        <p className="mt-1 truncate font-bold text-slate-950">{obtenerNombreProducto(producto)}</p>
-                                        <p className="text-xs text-slate-500">{producto.total_vendido} unidades vendidas</p>
+                                    <div className="flex min-w-0 items-center gap-3">
+                                        <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-md bg-slate-100 text-emerald-700">
+                                            {imagenProducto(producto) ? (
+                                                <img src={imagenProducto(producto)} alt={obtenerNombreProducto(producto)} className="h-full w-full object-cover" />
+                                            ) : (
+                                                <FaLeaf />
+                                            )}
+                                        </div>
+                                        <div className="min-w-0">
+                                            <p className="text-xs font-bold uppercase tracking-wide text-emerald-700">#{index + 1} · ID {producto.id_planta}</p>
+                                            <p className="mt-1 truncate font-bold text-slate-950">{obtenerNombreProducto(producto)}</p>
+                                            <p className="text-xs text-slate-500">{producto.total_vendido} unidades vendidas</p>
+                                        </div>
                                     </div>
                                     <span className="rounded-md bg-slate-950 px-3 py-1 text-sm font-bold text-white">
                                         {producto.total_vendido}
