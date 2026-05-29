@@ -128,6 +128,9 @@ const enviarCorreoTicket = async ({ correo, rutaPDF, nombrePDF, nombreCliente, v
         host: process.env.SMTP_HOST,
         port: Number(process.env.SMTP_PORT || 587),
         secure: process.env.SMTP_SECURE === 'true',
+        connectionTimeout: 8000,
+        greetingTimeout: 8000,
+        socketTimeout: 12000,
         auth: {
             user: process.env.SMTP_USER,
             pass: process.env.SMTP_PASS
@@ -162,10 +165,14 @@ const intentarEntrega = async (fn, fallback) => {
     try {
         return await fn()
     } catch (error) {
+        const mensajeError = error.code === 'ETIMEDOUT' || /timeout/i.test(error.message || '')
+            ? 'No se pudo conectar a Gmail SMTP. En Render gratis los puertos SMTP 25, 465 y 587 pueden estar bloqueados.'
+            : error.response || error.message || fallback.mensaje
+
         return {
             ...fallback,
             enviado: false,
-            mensaje: error.response || error.message || fallback.mensaje
+            mensaje: mensajeError
         }
     }
 }
