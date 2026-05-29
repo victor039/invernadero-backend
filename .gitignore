@@ -1,18 +1,45 @@
-node_modules/
-frontend/node_modules/
-frontend/dist/
-
-.env
-.env.*
-!.env.example
-
+# Logs
+logs
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+lerna-debug.log*
 
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Dependencies
+node_modules/
+frontend/node_modules/
+jspm_packages/
+bower_components/
+
+# Build output and caches
+dist/
+frontend/dist/
+.cache
+.parcel-cache
+.vite/
+coverage
+.nyc_output
+.eslintcache
+.stylelintcache
+*.tsbuildinfo
+
+# Generated app files
 respaldos/
 tickets/
 
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+# OS files
 .DS_Store
 Thumbs.db
