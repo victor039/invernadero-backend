@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { FaCalendarAlt, FaCashRegister, FaCheckCircle, FaCreditCard, FaDownload, FaEnvelope, FaExclamationTriangle, FaExchangeAlt, FaLeaf, FaMinus, FaMoneyBillWave, FaPlus, FaReceipt, FaSearch, FaShoppingCart, FaTicketAlt, FaTrash, FaUserCheck, FaUserClock, FaWhatsapp } from 'react-icons/fa'
+import { FaCalendarAlt, FaCashRegister, FaCheckCircle, FaCreditCard, FaDownload, FaEnvelope, FaExclamationTriangle, FaExchangeAlt, FaLeaf, FaMinus, FaMoneyBillWave, FaPlus, FaPrint, FaReceipt, FaSearch, FaShoppingCart, FaTicketAlt, FaTrash, FaUserCheck, FaUserClock, FaWhatsapp } from 'react-icons/fa'
 import Swal from 'sweetalert2'
 
 import DashboardLayout from '../layouts/DashboardLayout'
@@ -26,6 +26,7 @@ function Ventas() {
     const [correoTicket, setCorreoTicket] = useState('')
     const [busquedaHistorial, setBusquedaHistorial] = useState('')
     const [filtroHistorial, setFiltroHistorial] = useState('hoy')
+    const [ticketProcesandoId, setTicketProcesandoId] = useState(null)
     const [entregaTicket, setEntregaTicket] = useState({
         descarga: false,
         whatsapp: false,
@@ -365,6 +366,122 @@ function Ventas() {
         }
 
         return null
+    }
+
+    const generarTicketHistorial = async (venta, entregaTicketHistorial = {}) => {
+        const token = localStorage.getItem('token')
+        const response = await api.post(
+            `/ventas/${venta.id_venta}/ticket`,
+            entregaTicketHistorial,
+            { headers: { Authorization: `Bearer ${token}` } }
+        )
+
+        return response.data
+    }
+
+    const abrirTicketImpresion = async (venta) => {
+        try {
+            setTicketProcesandoId(venta.id_venta)
+            const response = await generarTicketHistorial(venta, {
+                entrega_ticket: { descarga: true }
+            })
+
+            window.open(response.pdf, '_blank', 'noopener,noreferrer')
+        } catch (error) {
+            console.log(error)
+            Swal.fire('Error', 'No se pudo generar el ticket para imprimir.', 'error')
+        } finally {
+            setTicketProcesandoId(null)
+        }
+    }
+
+    const descargarTicketHistorial = async (venta) => {
+        try {
+            setTicketProcesandoId(venta.id_venta)
+            const response = await generarTicketHistorial(venta, {
+                entrega_ticket: { descarga: true }
+            })
+
+            await descargarTicket(response.pdf, venta.id_venta)
+        } catch (error) {
+            console.log(error)
+            Swal.fire('Error', 'No se pudo descargar el ticket.', 'error')
+        } finally {
+            setTicketProcesandoId(null)
+        }
+    }
+
+    const reenviarTicketCorreo = async (venta) => {
+        const result = await Swal.fire({
+            title: `Enviar ticket #${venta.id_venta}`,
+            input: 'email',
+            inputLabel: 'Correo del cliente',
+            inputPlaceholder: 'cliente@correo.com',
+            confirmButtonText: 'Enviar por Gmail/correo',
+            showCancelButton: true,
+            cancelButtonText: 'Cancelar',
+            confirmButtonColor: '#1d4ed8',
+            inputValidator: (value) => {
+                if (!value) return 'Escribe un correo para enviar el ticket'
+                if (!/^\S+@\S+\.\S+$/.test(value)) return 'Correo no válido'
+                return null
+            }
+        })
+
+        if (!result.isConfirmed) return
+
+        try {
+            setTicketProcesandoId(venta.id_venta)
+            const response = await generarTicketHistorial(venta, {
+                entrega_ticket: { correo: true },
+                correo_ticket: result.value
+            })
+            const entrega = response.entregas?.[0]
+
+            Swal.fire(entrega?.enviado ? 'Enviado' : 'Revisar configuración', entrega?.mensaje || 'Solicitud procesada', entrega?.enviado ? 'success' : 'info')
+        } catch (error) {
+            console.log(error)
+            Swal.fire('Error', 'No se pudo enviar el ticket por correo.', 'error')
+        } finally {
+            setTicketProcesandoId(null)
+        }
+    }
+
+    const reenviarTicketWhatsApp = async (venta) => {
+        const result = await Swal.fire({
+            title: `Enviar ticket #${venta.id_venta}`,
+            input: 'text',
+            inputLabel: 'WhatsApp del cliente',
+            inputPlaceholder: 'Ej. 5551234567',
+            confirmButtonText: 'Enviar por WhatsApp',
+            showCancelButton: true,
+            cancelButtonText: 'Cancelar',
+            confirmButtonColor: '#16a34a',
+            inputValidator: (value) => {
+                const limpio = String(value || '').replace(/\D/g, '')
+                if (!limpio) return 'Escribe un teléfono para enviar el ticket'
+                if (limpio.length < 10) return 'El teléfono debe tener al menos 10 dígitos'
+                return null
+            }
+        })
+
+        if (!result.isConfirmed) return
+
+        try {
+            setTicketProcesandoId(venta.id_venta)
+            const response = await generarTicketHistorial(venta, {
+                entrega_ticket: { whatsapp: true },
+                telefono_ticket: result.value
+            })
+            const entrega = response.entregas?.[0]
+
+            Swal.fire(entrega?.enviado ? 'Enviado' : 'Revisar configuración', entrega?.mensaje || 'Solicitud procesada', entrega?.enviado ? 'success' : 'info')
+        } catch (error) {
+            console.log(error)
+            Swal.fire('Error', 'No se pudo enviar el ticket por WhatsApp.', 'error')
+        } finally {
+            setTicketProcesandoId(null)
+        }
     }
 
     return (
@@ -813,7 +930,7 @@ function Ventas() {
                 )}
 
                 <div className="overflow-x-auto">
-                    <table className="w-full min-w-[860px] text-left text-sm">
+                    <table className="w-full min-w-[1040px] text-left text-sm">
                         <thead>
                             <tr className="border-b bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                                 <th className="px-4 py-3">Venta</th>
@@ -821,12 +938,13 @@ function Ventas() {
                                 <th className="px-4 py-3">Atendió</th>
                                 <th className="px-4 py-3">Fecha</th>
                                 <th className="px-4 py-3 text-right">Total</th>
+                                <th className="px-4 py-3 text-right">Ticket</th>
                             </tr>
                         </thead>
                         <tbody>
                             {historialFiltrado.length === 0 ? (
                                 <tr>
-                                    <td colSpan="5" className="px-4 py-12 text-center text-slate-500">
+                                    <td colSpan="6" className="px-4 py-12 text-center text-slate-500">
                                         No hay ventas que coincidan con el filtro.
                                     </td>
                                 </tr>
@@ -857,6 +975,50 @@ function Ventas() {
                                     </td>
                                     <td className="px-4 py-4 text-right">
                                         <p className="text-lg font-bold text-emerald-700">{formatoMoneda.format(Number(venta.total || 0))}</p>
+                                    </td>
+                                    <td className="px-4 py-4">
+                                        <div className="flex justify-end gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => abrirTicketImpresion(venta)}
+                                                disabled={ticketProcesandoId === venta.id_venta}
+                                                className="rounded-md bg-slate-950 p-2 text-white transition hover:bg-slate-800 disabled:bg-slate-400"
+                                                aria-label="Reimprimir ticket"
+                                                title="Reimprimir ticket"
+                                            >
+                                                <FaPrint />
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => descargarTicketHistorial(venta)}
+                                                disabled={ticketProcesandoId === venta.id_venta}
+                                                className="rounded-md bg-emerald-700 p-2 text-white transition hover:bg-emerald-800 disabled:bg-slate-400"
+                                                aria-label="Descargar ticket"
+                                                title="Descargar ticket"
+                                            >
+                                                <FaDownload />
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => reenviarTicketWhatsApp(venta)}
+                                                disabled={ticketProcesandoId === venta.id_venta}
+                                                className="rounded-md bg-green-600 p-2 text-white transition hover:bg-green-700 disabled:bg-slate-400"
+                                                aria-label="Enviar ticket por WhatsApp"
+                                                title="Enviar ticket por WhatsApp"
+                                            >
+                                                <FaWhatsapp />
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => reenviarTicketCorreo(venta)}
+                                                disabled={ticketProcesandoId === venta.id_venta}
+                                                className="rounded-md bg-blue-700 p-2 text-white transition hover:bg-blue-800 disabled:bg-slate-400"
+                                                aria-label="Enviar ticket por correo"
+                                                title="Enviar ticket por correo"
+                                            >
+                                                <FaEnvelope />
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                             ))}

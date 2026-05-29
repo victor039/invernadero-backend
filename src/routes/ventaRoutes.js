@@ -7,7 +7,8 @@ const authMiddleware = require('../middlewares/authMiddleware')
 const {
 
     crearVenta,
-    obtenerVentas
+    obtenerVentas,
+    generarTicketVenta
 
 } = require('../controllers/ventaController')
 
@@ -28,6 +29,16 @@ router.get(
     authMiddleware,
 
     obtenerVentas
+
+)
+
+router.post(
+
+    '/:id/ticket',
+
+    authMiddleware,
+
+    generarTicketVenta
 
 )
 

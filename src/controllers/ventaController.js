@@ -208,6 +208,139 @@ const intentarEntrega = async (fn, fallback) => {
     }
 }
 
+const obtenerBaseUrl = (req) => process.env.PUBLIC_URL || `${req.protocol}://${req.get('host')}`
+
+const generarTicketPDF = async ({
+    venta,
+    productosTicket,
+    nombreCliente,
+    nombreEmpleado,
+    id_empleado,
+    metodo_pago = 'Registrado',
+    referencia_pago = ''
+}) => {
+    const carpetaTickets = path.join(__dirname, '../../tickets')
+
+    if (!fs.existsSync(carpetaTickets)) {
+        fs.mkdirSync(carpetaTickets)
+    }
+
+    const nombrePDF = `ticket-${venta.id_venta}.pdf`
+    const rutaPDF = path.join(carpetaTickets, nombrePDF)
+    const total = Number(venta.total || 0)
+    const doc = new PDFDocument({
+        margin: 45,
+        size: 'A4'
+    })
+    const ticketStream = fs.createWriteStream(rutaPDF)
+
+    doc.pipe(ticketStream)
+
+    doc.rect(0, 0, 595, 96).fill('#064e3b')
+    doc.fontSize(24).fillColor('#ffffff').text('INVERNADERO S.A. DE C.V.', 45, 28)
+    doc.fontSize(10).fillColor('#bbf7d0').text('Sistema de ventas y control de plantas', 45, 60)
+    doc.fontSize(10).fillColor('#ffffff').text(`Ticket #${venta.id_venta}`, 430, 30, {
+        width: 115,
+        align: 'right'
+    })
+    doc.fontSize(9).fillColor('#d1fae5').text(new Date(venta.fecha_venta || Date.now()).toLocaleString('es-MX'), 380, 52, {
+        width: 165,
+        align: 'right'
+    })
+
+    doc.y = 125
+    doc.fontSize(12).fillColor('#0f172a').text('Datos de la venta', 45, doc.y)
+    doc.moveDown(0.6)
+
+    const infoY = doc.y
+    doc.roundedRect(45, infoY, 505, referencia_pago ? 98 : 82, 8).fill('#f8fafc').stroke('#e2e8f0')
+    doc.fontSize(10).fillColor('#475569').text('Cliente', 65, infoY + 16)
+        .fillColor('#0f172a').fontSize(12).text(nombreCliente, 65, infoY + 31, { width: 210 })
+    doc.fontSize(10).fillColor('#475569').text('Tipo', 65, infoY + 56)
+        .fillColor('#0f172a').text('Cliente registrado', 65, infoY + 70)
+    doc.fontSize(10).fillColor('#475569').text('Atendido por', 300, infoY + 16)
+        .fillColor('#0f172a').fontSize(12).text(`${nombreEmpleado} (ID ${id_empleado})`, 300, infoY + 31, { width: 220 })
+    doc.fontSize(10).fillColor('#475569').text('Pago', 300, infoY + 56)
+        .fillColor('#0f172a').text(referencia_pago ? `${metodo_pago} · Ref. ${referencia_pago}` : metodo_pago, 300, infoY + 70, { width: 220 })
+
+    doc.y = infoY + (referencia_pago ? 120 : 104)
+
+    const tableTop = doc.y
+    doc.fontSize(12).fillColor('#fff').roundedRect(45, tableTop, 505, 24, 4).fill('#047857')
+    doc.fillColor('#fff').fontSize(10)
+        .text('Producto', 55, tableTop + 7)
+        .text('Cant.', 300, tableTop + 7)
+        .text('P. Unit.', 365, tableTop + 7)
+        .text('Subtotal', 455, tableTop + 7)
+
+    doc.y = tableTop + 34
+
+    productosTicket.forEach((item, index) => {
+        const y = doc.y
+
+        doc.fillColor(index % 2 === 0 ? '#ffffff' : '#f8fafc').rect(45, y - 4, 505, 34).fill()
+        doc.fillColor('#0f172a').fontSize(10).text(`${item.nombre} (ID ${item.id_planta})`, 55, y, { width: 220 })
+        doc.fontSize(8).fillColor('#64748b').text(item.nombre_cientifico || 'Producto de invernadero', 55, y + 13, { width: 220 })
+        doc.fontSize(10).fillColor('#0f172a')
+            .text(String(item.cantidad), 305, y)
+            .text(`$${Number(item.precio_unitario || 0).toFixed(2)}`, 365, y)
+            .text(`$${Number(item.subtotal || 0).toFixed(2)}`, 455, y)
+
+        doc.y = y + 34
+    })
+
+    doc.moveDown()
+    doc.strokeColor('#e2e8f0').lineWidth(1).moveTo(45, doc.y).lineTo(550, doc.y).stroke()
+    doc.moveDown()
+    doc.fontSize(20).fillColor('#047857').text(`TOTAL: $${total.toFixed(2)}`, { align: 'right' })
+    doc.moveDown(2)
+    doc.fontSize(12).fillColor('#475569').text('Gracias por su compra', { align: 'center' })
+    doc.text('Invernadero - Sistema de gestión inteligente', { align: 'center' })
+    doc.end()
+
+    await new Promise((resolve, reject) => {
+        ticketStream.on('finish', resolve)
+        ticketStream.on('error', reject)
+    })
+
+    return { nombrePDF, rutaPDF }
+}
+
+const obtenerDatosTicketVenta = async (idVenta) => {
+    const venta = await Venta.findByPk(idVenta)
+
+    if (!venta) return null
+
+    const [detalles, cliente, empleado] = await Promise.all([
+        DetalleVenta.findAll({ where: { id_venta: venta.id_venta } }),
+        Cliente.findByPk(venta.id_cliente),
+        Empleado.findByPk(venta.id_empleado)
+    ])
+    const plantas = await Planta.findAll({
+        where: {
+            id_planta: detalles.map((detalle) => detalle.id_planta)
+        }
+    })
+    const plantasPorId = new Map(plantas.map((planta) => [Number(planta.id_planta), planta]))
+    const productosTicket = detalles.map((detalle) => {
+        const data = detalle.toJSON()
+        const planta = plantasPorId.get(Number(data.id_planta))
+
+        return {
+            id_planta: Number(data.id_planta),
+            nombre: planta?.nombre_comun || `Planta #${data.id_planta}`,
+            nombre_cientifico: planta?.nombre_cientifico || '',
+            cantidad: Number(data.cantidad || 0),
+            precio_unitario: Number(data.precio_unitario || 0),
+            subtotal: Number(data.subtotal || 0)
+        }
+    })
+    const nombreCliente = cliente ? `${cliente.nombre || ''} ${cliente.apellido || ''}`.trim() : `Cliente #${venta.id_cliente}`
+    const nombreEmpleado = empleado ? `${empleado.nombre || ''} ${empleado.apellido || ''}`.trim() || empleado.usuario : `Empleado #${venta.id_empleado}`
+
+    return { venta, cliente, empleado, productosTicket, nombreCliente, nombreEmpleado }
+}
+
 exports.crearVenta = async (req, res) => {
 
     try {
@@ -548,7 +681,7 @@ await new Promise((resolve, reject) => {
     ticketStream.on('error', reject)
 })
 
-const pdfUrl = `http://localhost:3000/tickets/${nombrePDF}`
+const pdfUrl = `${obtenerBaseUrl(req)}/tickets/${nombrePDF}`
 const entregas = []
 
 if (entrega_ticket.correo) {
@@ -670,4 +803,90 @@ exports.obtenerVentas = async (req, res) => {
 
     }
 
+}
+
+exports.generarTicketVenta = async (req, res) => {
+    try {
+        const datosTicket = await obtenerDatosTicketVenta(req.params.id)
+
+        if (!datosTicket) {
+            return res.status(404).json({ mensaje: 'Venta no encontrada' })
+        }
+
+        const {
+            entrega_ticket = {},
+            correo_ticket = '',
+            telefono_ticket = ''
+        } = req.body
+        const {
+            venta,
+            cliente,
+            productosTicket,
+            nombreCliente,
+            nombreEmpleado
+        } = datosTicket
+        const { nombrePDF, rutaPDF } = await generarTicketPDF({
+            venta,
+            productosTicket,
+            nombreCliente,
+            nombreEmpleado,
+            id_empleado: venta.id_empleado
+        })
+        const pdfUrl = `${obtenerBaseUrl(req)}/tickets/${nombrePDF}`
+        const entregas = []
+
+        if (entrega_ticket.correo) {
+            entregas.push(
+                await intentarEntrega(
+                    () => enviarCorreoTicket({
+                        correo: correo_ticket || cliente?.correo,
+                        rutaPDF,
+                        nombrePDF,
+                        nombreCliente,
+                        venta,
+                        total: venta.total,
+                        productos: productosTicket
+                    }),
+                    { canal: 'correo', mensaje: 'No se pudo enviar el correo' }
+                )
+            )
+        }
+
+        if (entrega_ticket.whatsapp) {
+            entregas.push(
+                await intentarEntrega(
+                    () => enviarWhatsAppTicket({
+                        telefono: telefono_ticket || cliente?.telefono,
+                        pdfUrl,
+                        nombreCliente,
+                        venta,
+                        total: venta.total
+                    }),
+                    { canal: 'whatsapp', mensaje: 'No se pudo enviar WhatsApp' }
+                )
+            )
+        }
+
+        if (entrega_ticket.descarga) {
+            entregas.push({
+                canal: 'descarga',
+                enviado: true,
+                mensaje: 'Ticket disponible para descarga'
+            })
+        }
+
+        res.json({
+            mensaje: 'Ticket generado',
+            venta: venta.id_venta,
+            pdf: pdfUrl,
+            entregas
+        })
+    } catch (error) {
+        console.log(error)
+
+        res.status(500).json({
+            mensaje: 'Error al generar ticket',
+            error: error.message
+        })
+    }
 }
