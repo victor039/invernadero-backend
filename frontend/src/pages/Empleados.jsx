@@ -4,6 +4,7 @@ import { FaEdit, FaPlus, FaTrash, FaUsers } from 'react-icons/fa'
 
 import DashboardLayout from '../layouts/DashboardLayout'
 import api from '../services/api'
+import { limpiarTexto, validarCorreo, validarLongitud, validarTelefono } from '../utils/validaciones'
 
 const empleadoInicial = {
     nombre: '',
@@ -44,9 +45,13 @@ function Empleados() {
     const validar = () => {
         const nuevosErrores = {}
 
-        if (!form.nombre.trim()) nuevosErrores.nombre = 'El nombre es obligatorio'
-        if (!form.usuario.trim()) nuevosErrores.usuario = 'El usuario es obligatorio'
-        if (form.correo && !/^\S+@\S+\.\S+$/.test(form.correo)) nuevosErrores.correo = 'Correo no válido'
+        if (!limpiarTexto(form.nombre)) nuevosErrores.nombre = 'El nombre es obligatorio'
+        if (!validarLongitud(form.nombre, 80)) nuevosErrores.nombre = 'Máximo 80 caracteres'
+        if (!validarLongitud(form.apellido, 80)) nuevosErrores.apellido = 'Máximo 80 caracteres'
+        if (!limpiarTexto(form.usuario)) nuevosErrores.usuario = 'El usuario es obligatorio'
+        if (!/^[a-zA-Z0-9._-]{3,30}$/.test(limpiarTexto(form.usuario))) nuevosErrores.usuario = 'Usa 3-30 caracteres, letras/números/punto/guion'
+        if (!validarCorreo(form.correo)) nuevosErrores.correo = 'Correo no válido'
+        if (!validarTelefono(form.telefono)) nuevosErrores.telefono = 'Teléfono no válido'
         if (!editandoId && form.contraseña.length < 4) nuevosErrores.contraseña = 'Mínimo 4 caracteres'
         if (editandoId && form.contraseña && form.contraseña.length < 4) nuevosErrores.contraseña = 'Mínimo 4 caracteres'
 
@@ -179,7 +184,7 @@ function Empleados() {
                     </div>
                     <div>
                         <input name="apellido" value={form.apellido} onChange={handleChange} placeholder="Apellido" className="h-11 w-full rounded-md border border-slate-300 px-3 outline-none focus:border-emerald-600" />
-                        <p className="mt-1 min-h-5 text-xs text-red-600"></p>
+                        <p className="mt-1 min-h-5 text-xs text-red-600">{errores.apellido}</p>
                     </div>
                     <div>
                         <input name="usuario" value={form.usuario} onChange={handleChange} placeholder="Usuario" autoComplete="off" data-lpignore="true" data-1p-ignore="true" className="h-11 w-full rounded-md border border-slate-300 px-3 outline-none focus:border-emerald-600" />
@@ -191,7 +196,7 @@ function Empleados() {
                     </div>
                     <div>
                         <input name="telefono" value={form.telefono} onChange={handleChange} placeholder="Teléfono" className="h-11 w-full rounded-md border border-slate-300 px-3 outline-none focus:border-emerald-600" />
-                        <p className="mt-1 min-h-5 text-xs text-red-600"></p>
+                        <p className="mt-1 min-h-5 text-xs text-red-600">{errores.telefono}</p>
                     </div>
                     <div>
                         <select name="id_rol" value={form.id_rol} onChange={handleChange} className="h-11 w-full rounded-md border border-slate-300 px-3 outline-none focus:border-emerald-600">

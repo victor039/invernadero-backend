@@ -4,6 +4,7 @@ import Swal from 'sweetalert2'
 
 import DashboardLayout from '../layouts/DashboardLayout'
 import api from '../services/api'
+import { limpiarTexto, validarEnteroNoNegativo, validarLongitud, validarNumeroPositivo } from '../utils/validaciones'
 
 const formInicial = {
     nombre_comun: '',
@@ -29,6 +30,7 @@ function Plantas() {
     const [modoEdicion, setModoEdicion] = useState(false)
     const [idEditar, setIdEditar] = useState(null)
     const [form, setForm] = useState(formInicial)
+    const [errores, setErrores] = useState({})
     const [plantaVista, setPlantaVista] = useState(null)
     const imagenPreview = form.imagen ? URL.createObjectURL(form.imagen) : null
     const formRef = useRef(null)
@@ -57,10 +59,12 @@ function Plantas() {
     const handleChange = (e) => {
         const { name, value, files } = e.target
         setForm({ ...form, [name]: name === 'imagen' ? files[0] : value })
+        setErrores({ ...errores, [name]: '' })
     }
 
     const limpiar = () => {
         setForm(formInicial)
+        setErrores({})
         setModoEdicion(false)
         setIdEditar(null)
         setBusqueda('')
@@ -69,8 +73,21 @@ function Plantas() {
     const handleSubmit = async (e) => {
         e.preventDefault()
 
-        if (!form.nombre_comun || !form.precio || !form.stock || !form.id_categoria || !form.id_proveedor) {
-            Swal.fire('Faltan datos', 'Completa nombre, precio, stock, categoría y proveedor', 'warning')
+        const nuevosErrores = {}
+
+        if (!limpiarTexto(form.nombre_comun)) nuevosErrores.nombre_comun = 'El nombre común es obligatorio'
+        if (!validarLongitud(form.nombre_comun, 100)) nuevosErrores.nombre_comun = 'Máximo 100 caracteres'
+        if (!validarLongitud(form.nombre_cientifico, 120)) nuevosErrores.nombre_cientifico = 'Máximo 120 caracteres'
+        if (!validarNumeroPositivo(form.precio)) nuevosErrores.precio = 'Precio mayor a 0'
+        if (!validarEnteroNoNegativo(Number(form.stock))) nuevosErrores.stock = 'Stock entero desde 0'
+        if (!form.id_categoria) nuevosErrores.id_categoria = 'Selecciona categoría'
+        if (!form.id_proveedor) nuevosErrores.id_proveedor = 'Selecciona proveedor'
+        if (!validarLongitud(form.descripcion, 350)) nuevosErrores.descripcion = 'Máximo 350 caracteres'
+
+        setErrores(nuevosErrores)
+
+        if (Object.keys(nuevosErrores).length > 0) {
+            Swal.fire('Revisa los datos', 'Hay campos incompletos o con formato incorrecto.', 'warning')
             return
         }
 
@@ -279,34 +296,34 @@ function Plantas() {
                         {/* Columna izquierda - Campos de texto */}
                         <div className="lg:col-span-2 space-y-4">
                             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                                <CampoPlanta label="Nombre común" icono={FaLeaf}>
+                                <CampoPlanta label="Nombre común" icono={FaLeaf} error={errores.nombre_comun}>
                                     <input name="nombre_comun" value={form.nombre_comun} onChange={handleChange} placeholder="Ej. Monstera" className="h-11 w-full bg-transparent outline-none" />
                                 </CampoPlanta>
 
-                                <CampoPlanta label="Nombre científico" icono={FaFlask}>
+                                <CampoPlanta label="Nombre científico" icono={FaFlask} error={errores.nombre_cientifico}>
                                     <input name="nombre_cientifico" value={form.nombre_cientifico} onChange={handleChange} placeholder="Ej. Monstera deliciosa" className="h-11 w-full bg-transparent outline-none" />
                                 </CampoPlanta>
                             </div>
 
                             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                                <CampoPlanta label="Precio" icono={FaDollarSign}>
-                                    <input name="precio" value={form.precio} onChange={handleChange} placeholder="0.00" className="h-11 w-full bg-transparent outline-none" />
+                                <CampoPlanta label="Precio" icono={FaDollarSign} error={errores.precio}>
+                                    <input name="precio" type="number" min="0.01" step="0.01" value={form.precio} onChange={handleChange} placeholder="0.00" className="h-11 w-full bg-transparent outline-none" />
                                 </CampoPlanta>
 
-                                <CampoPlanta label="Stock" icono={FaWarehouse}>
-                                    <input name="stock" value={form.stock} onChange={handleChange} placeholder="0" className="h-11 w-full bg-transparent outline-none" />
+                                <CampoPlanta label="Stock" icono={FaWarehouse} error={errores.stock}>
+                                    <input name="stock" type="number" min="0" step="1" value={form.stock} onChange={handleChange} placeholder="0" className="h-11 w-full bg-transparent outline-none" />
                                 </CampoPlanta>
                             </div>
 
                             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                                <CampoPlanta label="Categoría" icono={FaLayerGroup}>
+                                <CampoPlanta label="Categoría" icono={FaLayerGroup} error={errores.id_categoria}>
                                     <select name="id_categoria" value={form.id_categoria} onChange={handleChange} className="h-11 w-full bg-transparent outline-none">
                                         <option value="">Selecciona categoría</option>
                                         {categorias.map((categoria) => <option key={categoria.id_categoria} value={categoria.id_categoria}>{categoria.nombre_categoria}</option>)}
                                     </select>
                                 </CampoPlanta>
 
-                                <CampoPlanta label="Proveedor" icono={FaTruck}>
+                                <CampoPlanta label="Proveedor" icono={FaTruck} error={errores.id_proveedor}>
                                     <select name="id_proveedor" value={form.id_proveedor} onChange={handleChange} className="h-11 w-full bg-transparent outline-none">
                                         <option value="">Selecciona proveedor</option>
                                         {proveedores.map((proveedor) => <option key={proveedor.id_proveedor} value={proveedor.id_proveedor}>{proveedor.nombre_empresa}</option>)}
@@ -315,7 +332,7 @@ function Plantas() {
                             </div>
 
                             <div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,1fr)_240px]">
-                                <div className="rounded-xl border border-slate-300 bg-white p-4 shadow-sm transition focus-within:border-emerald-600 focus-within:ring-2 focus-within:ring-emerald-100">
+                                <div className={`rounded-xl border bg-white p-4 shadow-sm transition focus-within:border-emerald-600 focus-within:ring-2 focus-within:ring-emerald-100 ${errores.descripcion ? 'border-red-300' : 'border-slate-300'}`}>
                                     <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-600">
                                         <FaSeedling className="text-emerald-700" />
                                         Descripción
@@ -325,6 +342,7 @@ function Plantas() {
                                         <span>Notas internas del inventario</span>
                                         <span>{form.descripcion.length} caracteres</span>
                                     </div>
+                                    <p className="mt-2 min-h-5 text-xs text-red-600">{errores.descripcion}</p>
                                 </div>
 
                                 <div className="flex h-full flex-col justify-between rounded-xl border border-slate-200 bg-slate-950 p-4 text-white shadow-lg shadow-slate-950/10">
@@ -449,16 +467,17 @@ function Plantas() {
     )
 }
 
-function CampoPlanta({ label, icono: Icono, children }) {
+function CampoPlanta({ label, icono: Icono, error, children }) {
     return (
         <label className="block">
             <span className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-600">
                 <Icono className="text-emerald-700" />
                 {label}
             </span>
-            <div className="flex items-center rounded-lg border border-slate-300 bg-white px-3 transition focus-within:border-emerald-600 focus-within:ring-2 focus-within:ring-emerald-100">
+            <div className={`flex items-center rounded-lg border bg-white px-3 transition focus-within:border-emerald-600 focus-within:ring-2 focus-within:ring-emerald-100 ${error ? 'border-red-300' : 'border-slate-300'}`}>
                 {children}
             </div>
+            <p className="mt-1 min-h-5 text-xs text-red-600">{error}</p>
         </label>
     )
 }

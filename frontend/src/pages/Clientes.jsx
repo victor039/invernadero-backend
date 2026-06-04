@@ -4,6 +4,7 @@ import Swal from 'sweetalert2'
 
 import DashboardLayout from '../layouts/DashboardLayout'
 import api from '../services/api'
+import { limpiarTexto, validarCorreo, validarLongitud, validarTelefono } from '../utils/validaciones'
 
 const clienteInicial = {
     nombre: '',
@@ -42,15 +43,20 @@ function Clientes() {
     const validar = () => {
         const nuevosErrores = {}
 
-        if (!form.nombre.trim()) nuevosErrores.nombre = 'El nombre es obligatorio'
-        if (form.correo && !/^\S+@\S+\.\S+$/.test(form.correo)) nuevosErrores.correo = 'Correo no válido'
+        if (!limpiarTexto(form.nombre)) nuevosErrores.nombre = 'El nombre es obligatorio'
+        if (!validarLongitud(form.nombre, 80)) nuevosErrores.nombre = 'Máximo 80 caracteres'
+        if (!validarLongitud(form.apellido, 80)) nuevosErrores.apellido = 'Máximo 80 caracteres'
+        if (!validarCorreo(form.correo)) nuevosErrores.correo = 'Correo no válido'
+        if (!validarTelefono(form.telefono)) nuevosErrores.telefono = 'Teléfono no válido'
+        if (!validarLongitud(form.direccion, 180)) nuevosErrores.direccion = 'Máximo 180 caracteres'
 
         setErrores(nuevosErrores)
         return Object.keys(nuevosErrores).length === 0
     }
 
     const handleChange = (e) => {
-        setForm({ ...form, [e.target.name]: e.target.value })
+        const { name, value } = e.target
+        setForm({ ...form, [name]: value })
         setErrores({ ...errores, [e.target.name]: '' })
     }
 
@@ -181,22 +187,23 @@ function Clientes() {
                         <Campo icono={FaUserTie} error={errores.nombre}>
                             <input name="nombre" value={form.nombre} onChange={handleChange} placeholder="Nombre" className="h-11 w-full bg-transparent outline-none" />
                         </Campo>
-                        <Campo icono={FaAddressCard}>
+                        <Campo icono={FaAddressCard} error={errores.apellido}>
                             <input name="apellido" value={form.apellido} onChange={handleChange} placeholder="Apellido" className="h-11 w-full bg-transparent outline-none" />
                         </Campo>
                         <Campo icono={FaEnvelope} error={errores.correo}>
                             <input name="correo" value={form.correo} onChange={handleChange} placeholder="Correo" className="h-11 w-full bg-transparent outline-none" />
                         </Campo>
-                        <Campo icono={FaPhoneAlt}>
+                        <Campo icono={FaPhoneAlt} error={errores.telefono}>
                             <input name="telefono" value={form.telefono} onChange={handleChange} placeholder="Teléfono" className="h-11 w-full bg-transparent outline-none" />
                         </Campo>
 
-                        <div className="rounded-lg border border-slate-300 bg-white p-3 focus-within:border-cyan-700 md:col-span-2 xl:col-span-3">
+                        <div className={`rounded-lg border bg-white p-3 focus-within:border-cyan-700 md:col-span-2 xl:col-span-3 ${errores.direccion ? 'border-red-300' : 'border-slate-300'}`}>
                             <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-500">
                                 <FaMapMarkerAlt className="text-cyan-700" />
                                 Dirección
                             </div>
                             <textarea name="direccion" value={form.direccion} onChange={handleChange} placeholder="Dirección del cliente" className="min-h-11 w-full resize-none bg-transparent outline-none" />
+                            <p className="mt-1 min-h-5 text-xs text-red-600">{errores.direccion}</p>
                         </div>
 
                         <div className="flex gap-2">
