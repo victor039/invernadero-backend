@@ -167,14 +167,12 @@ function DashboardLayout({ children }) {
         const sidebarNav = sidebarNavRef.current
         if (!sidebarNav) return undefined
 
+        const posicionGuardada = Number(sessionStorage.getItem('sidebar_scroll_top') || 0)
+        sidebarNav.scrollTop = posicionGuardada
+
         const guardarScroll = () => {
             sessionStorage.setItem('sidebar_scroll_top', String(sidebarNav.scrollTop))
         }
-
-        requestAnimationFrame(() => {
-            const posicionGuardada = Number(sessionStorage.getItem('sidebar_scroll_top') || 0)
-            sidebarNav.scrollTo({ top: posicionGuardada, behavior: 'auto' })
-        })
 
         sidebarNav.addEventListener('scroll', guardarScroll, { passive: true })
 
@@ -221,6 +219,12 @@ function DashboardLayout({ children }) {
                         <NavLink
                             key={to}
                             to={to}
+                            onClick={() => {
+                                const sidebarNav = sidebarNavRef.current
+                                if (sidebarNav) {
+                                    sessionStorage.setItem('sidebar_scroll_top', String(sidebarNav.scrollTop))
+                                }
+                            }}
                             className={({ isActive }) =>
                                 `flex items-center gap-3 rounded-md px-4 py-3 text-sm font-semibold transition ${
                                     isActive
