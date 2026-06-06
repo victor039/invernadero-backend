@@ -19,7 +19,6 @@ function DashboardLayout({ children }) {
     const [ventasEmpleado, setVentasEmpleado] = useState([])
     const [ultimaVentaVista, setUltimaVentaVista] = useState(() => Number(localStorage.getItem(`ventas_vistas_admin_${usuario.id_empleado}`) || 0))
     const notificacionesRef = useRef(null)
-    const sidebarNavRef = useRef(null)
     const [perfilForm, setPerfilForm] = useState({
         nombre: usuario.nombre || usuario.usuario || '',
         apellido: usuario.apellido || '',
@@ -163,25 +162,6 @@ function DashboardLayout({ children }) {
         }
     }, [notificacionesAbiertas])
 
-    useEffect(() => {
-        const sidebarNav = sidebarNavRef.current
-        if (!sidebarNav) return undefined
-
-        const posicionGuardada = Number(sessionStorage.getItem('sidebar_scroll_top') || 0)
-        sidebarNav.scrollTop = posicionGuardada
-
-        const guardarScroll = () => {
-            sessionStorage.setItem('sidebar_scroll_top', String(sidebarNav.scrollTop))
-        }
-
-        sidebarNav.addEventListener('scroll', guardarScroll, { passive: true })
-
-        return () => {
-            guardarScroll()
-            sidebarNav.removeEventListener('scroll', guardarScroll)
-        }
-    }, [])
-
     const links = [
         { to: '/dashboard', label: 'Dashboard', icon: FaChartLine },
         { to: '/plantas', label: 'Inventario', icon: FaLeaf },
@@ -214,17 +194,11 @@ function DashboardLayout({ children }) {
                     </div>
                 </div>
 
-                <nav ref={sidebarNavRef} className="sidebar-scroll mt-8 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain pr-1 pb-4">
+                <nav className="sidebar-scroll mt-8 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain pr-1 pb-4">
                     {links.map(({ to, label, icon: Icon }) => (
                         <NavLink
                             key={to}
                             to={to}
-                            onClick={() => {
-                                const sidebarNav = sidebarNavRef.current
-                                if (sidebarNav) {
-                                    sessionStorage.setItem('sidebar_scroll_top', String(sidebarNav.scrollTop))
-                                }
-                            }}
                             className={({ isActive }) =>
                                 `flex items-center gap-3 rounded-md px-4 py-3 text-sm font-semibold transition ${
                                     isActive
