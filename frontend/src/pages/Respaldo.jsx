@@ -22,15 +22,15 @@ function Respaldo() {
 
             const disposition = response.headers['content-disposition'] || ''
             const nombreArchivo = disposition.match(/filename="?([^"]+)"?/)?.[1] || fallback
-            const url = window.URL.createObjectURL(new Blob([response.data]))
+            const urlDescarga = window.URL.createObjectURL(new Blob([response.data]))
             const enlace = document.createElement('a')
 
-            enlace.href = url
+            enlace.href = urlDescarga
             enlace.setAttribute('download', nombreArchivo)
             document.body.appendChild(enlace)
             enlace.click()
             enlace.remove()
-            window.URL.revokeObjectURL(url)
+            window.URL.revokeObjectURL(urlDescarga)
 
             Swal.fire('Descarga lista', mensaje, 'success')
         } catch (error) {
