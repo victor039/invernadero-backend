@@ -10,6 +10,8 @@ const formatoMoneda = new Intl.NumberFormat('es-MX', {
     currency: 'MXN'
 })
 
+const API_ORIGIN = (import.meta.env.VITE_API_URL || 'https://invernadero-backend-pfgt.onrender.com/api').replace(/\/api\/?$/, '')
+
 function Ventas() {
     const [plantas, setPlantas] = useState([])
     const [ventas, setVentas] = useState([])
@@ -27,7 +29,7 @@ function Ventas() {
     const [filtroHistorial, setFiltroHistorial] = useState('hoy')
     const [ticketProcesandoId, setTicketProcesandoId] = useState(null)
     const [entregaTicket, setEntregaTicket] = useState({
-        descarga: true,
+        descarga: false,
         correo: false
     })
 
@@ -44,15 +46,6 @@ function Ventas() {
 
         setCorreoTicket(cliente?.correo || '')
     }, [tipoCliente, clienteSeleccionado, clientes])
-
-    useEffect(() => {
-        if (tipoCliente !== 'paso') return
-
-        setEntregaTicket((actual) => ({
-            ...actual,
-            descarga: true
-        }))
-    }, [tipoCliente])
 
     const obtenerPlantas = async () => {
         const response = await api.get('/plantas')
@@ -90,7 +83,7 @@ function Ventas() {
         setReferenciaPago('')
         setCorreoTicket('')
         setEntregaTicket({
-            descarga: true,
+            descarga: false,
             correo: false
         })
     }
@@ -605,7 +598,7 @@ function Ventas() {
                         {plantaActual ? (
                             <>
                                 <div className="relative">
-                                    <img src={`http://localhost:3000/uploads/${plantaActual.imagen}`} alt={plantaActual.nombre_comun} className="h-40 w-full object-cover" />
+                                    <img src={`${API_ORIGIN}/uploads/${plantaActual.imagen}`} alt={plantaActual.nombre_comun} className="h-40 w-full object-cover" />
                                     <span className="absolute right-3 top-3 inline-flex items-center gap-2 rounded-full bg-white/95 px-3 py-1 text-xs font-bold text-emerald-800 shadow">
                                         <FaLeaf />
                                         Disponible

@@ -1,6 +1,10 @@
-import { Routes, Route } from 'react-router-dom'
+import { useEffect } from 'react'
+
+import { Routes, Route, useLocation } from 'react-router-dom'
 
 import Login from './pages/Login'
+
+import Bienvenida from './pages/Bienvenida'
 
 import Dashboard from './pages/Dashboard'
 
@@ -23,15 +27,46 @@ import Proveedores from './pages/Proveedores'
 import Respaldo from './pages/Respaldo'
 
 import NotFound from './pages/NotFound'
+
+function ScrollToTop() {
+  const { pathname } = useLocation()
+
+  useEffect(() => {
+    window.scrollTo({
+      top: 0,
+      left: 0,
+      behavior: 'auto'
+    })
+
+    document.documentElement.scrollTop = 0
+    document.body.scrollTop = 0
+  }, [pathname])
+
+  return null
+}
+
 function App() {
 
   return (
+
+    <>
+
+    <ScrollToTop />
 
     <Routes>
 
       <Route
         path="/"
         element={<Login />}
+      />
+
+      <Route
+        path="/bienvenida"
+        element={
+          <PrivateRoute>
+            <Bienvenida />
+          </PrivateRoute>
+        }
       />
 
       <Route
@@ -121,6 +156,8 @@ function App() {
       />
 
     </Routes>
+
+    </>
 
   )
 

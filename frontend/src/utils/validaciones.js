@@ -9,7 +9,26 @@ export const validarCorreo = (valor) => {
 export const validarTelefono = (valor) => {
     const telefono = limpiarTexto(valor)
     if (!telefono) return true
-    return /^\+?[\d\s().-]{7,20}$/.test(telefono)
+    const digitos = telefono.replace(/\D/g, '')
+    return /^\+?[\d\s().-]+$/.test(telefono) && digitos.length >= 7 && digitos.length <= 15
+}
+
+export const validarNombrePersona = (valor) => {
+    const texto = limpiarTexto(valor)
+    if (!texto) return true
+    return /^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+(?:[ '\-][A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+)*$/.test(texto)
+}
+
+export const validarUsuario = (valor) => {
+    const usuario = limpiarTexto(valor)
+    if (!usuario) return true
+    return /^[a-zA-Z0-9._-]{3,30}$/.test(usuario)
+}
+
+export const validarSinSoloNumeros = (valor) => {
+    const texto = limpiarTexto(valor)
+    if (!texto) return true
+    return !/^\d+$/.test(texto)
 }
 
 export const validarNumeroPositivo = (valor) => {

@@ -32,6 +32,9 @@ coverage
 # Generated app files
 respaldos/
 tickets/
+uploads/*
+!uploads/.gitkeep
+uploads/perfiles/
 *.zip
 
 # Runtime data

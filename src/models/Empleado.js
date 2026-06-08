@@ -29,7 +29,7 @@ const Empleado = sequelize.define(
         },
 
         foto: {
-            type: DataTypes.STRING
+            type: DataTypes.TEXT('long')
         },
 
         usuario: {

@@ -4,6 +4,16 @@ const bcrypt = require('bcrypt')
 
 const jwt = require('jsonwebtoken')
 
+const limpiarEmpleado = (empleado) => {
+
+    const data = empleado.toJSON()
+
+    delete data.contraseña
+
+    return data
+
+}
+
 exports.login = async (req, res) => {
 
     try {
@@ -87,7 +97,7 @@ exports.login = async (req, res) => {
 
             token,
 
-            empleado
+            empleado: limpiarEmpleado(empleado)
 
         })
 

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
-import { FaBell, FaBoxOpen, FaCamera, FaCashRegister, FaChartLine, FaCheckDouble, FaChevronRight, FaDatabase, FaHandHoldingUsd, FaLeaf, FaPowerOff, FaSave, FaSeedling, FaShieldAlt, FaShippingFast, FaTimes, FaUserFriends, FaUserTie, FaUsers } from 'react-icons/fa'
+import { FaBell, FaBoxOpen, FaCamera, FaCashRegister, FaChartLine, FaCheckDouble, FaChevronRight, FaDatabase, FaHandHoldingUsd, FaHome, FaLeaf, FaPowerOff, FaSave, FaSeedling, FaShieldAlt, FaShippingFast, FaTimes, FaUserFriends, FaUserTie, FaUsers } from 'react-icons/fa'
+import Swal from 'sweetalert2'
 import { guardarPerfilLocal } from '../utils/perfilLocal'
 import api from '../services/api'
 
@@ -8,6 +9,95 @@ const formatoMonedaNotificacion = new Intl.NumberFormat('es-MX', {
     style: 'currency',
     currency: 'MXN'
 })
+
+const API_ORIGIN = (import.meta.env.VITE_API_URL || 'https://invernadero-backend-pfgt.onrender.com/api').replace(/\/api\/?$/, '')
+const MAX_FOTO_PERFIL_BYTES = 450 * 1024
+
+const dataUrlBytes = (dataUrl = '') => Math.ceil((dataUrl.length * 3) / 4)
+
+const dataUrlToBlob = (dataUrl) => {
+    const [metadata, base64] = dataUrl.split(',')
+    const mime = metadata.match(/data:(.*);base64/)?.[1] || 'image/jpeg'
+    const binary = atob(base64)
+    const bytes = new Uint8Array(binary.length)
+
+    for (let index = 0; index < binary.length; index += 1) {
+        bytes[index] = binary.charCodeAt(index)
+    }
+
+    return new Blob([bytes], { type: mime })
+}
+
+const obtenerFotoPerfilSrc = (foto) => {
+    if (!foto) return ''
+    if (foto.startsWith('data:image/') || foto.startsWith('http')) return foto
+
+    const ruta = foto.replace(/^\/?uploads\//, '').replace(/^\/+/, '')
+    return `${API_ORIGIN}/uploads/${ruta}`
+}
+
+const comprimirImagenDesdeSrc = (src) => new Promise((resolve, reject) => {
+    const image = new Image()
+
+    image.onload = () => {
+        const opciones = [
+            { size: 360, quality: 0.82 },
+            { size: 320, quality: 0.72 },
+            { size: 280, quality: 0.62 },
+            { size: 240, quality: 0.56 }
+        ]
+
+        let mejorResultado = ''
+
+        for (const opcion of opciones) {
+            const canvas = document.createElement('canvas')
+            const ctx = canvas.getContext('2d')
+            const escala = Math.max(opcion.size / image.width, opcion.size / image.height)
+            const ancho = image.width * escala
+            const alto = image.height * escala
+            const x = (opcion.size - ancho) / 2
+            const y = (opcion.size - alto) / 2
+
+            canvas.width = opcion.size
+            canvas.height = opcion.size
+            ctx.fillStyle = '#ffffff'
+            ctx.fillRect(0, 0, opcion.size, opcion.size)
+            ctx.drawImage(image, x, y, ancho, alto)
+
+            mejorResultado = canvas.toDataURL('image/jpeg', opcion.quality)
+
+            if (dataUrlBytes(mejorResultado) <= MAX_FOTO_PERFIL_BYTES) {
+                break
+            }
+        }
+
+        resolve(mejorResultado)
+    }
+
+    image.onerror = () => {
+        reject(new Error('No se pudo procesar la imagen'))
+    }
+
+    image.src = src
+})
+
+const comprimirImagenPerfil = async (file) => {
+    const objectUrl = URL.createObjectURL(file)
+
+    try {
+        return await comprimirImagenDesdeSrc(objectUrl)
+    } finally {
+        URL.revokeObjectURL(objectUrl)
+    }
+}
+
+const ajustarFotoPerfil = async (foto) => {
+    if (!foto || typeof foto !== 'string') return ''
+    if (!foto.startsWith('data:image/')) return foto
+    if (dataUrlBytes(foto) <= MAX_FOTO_PERFIL_BYTES) return foto
+
+    return comprimirImagenDesdeSrc(foto)
+}
 
 function DashboardLayout({ children }) {
     const navigate = useNavigate()
@@ -17,6 +107,8 @@ function DashboardLayout({ children }) {
     const [notificacionesAbiertas, setNotificacionesAbiertas] = useState(false)
     const [ventaDetalle, setVentaDetalle] = useState(null)
     const [ventasEmpleado, setVentasEmpleado] = useState([])
+    const [guardandoPerfil, setGuardandoPerfil] = useState(false)
+    const [fotoPerfilArchivo, setFotoPerfilArchivo] = useState(null)
     const [ultimaVentaVista, setUltimaVentaVista] = useState(() => Number(localStorage.getItem(`ventas_vistas_admin_${usuario.id_empleado}`) || 0))
     const notificacionesRef = useRef(null)
     const [perfilForm, setPerfilForm] = useState({
@@ -43,6 +135,7 @@ function DashboardLayout({ children }) {
     }
 
     const abrirPerfil = () => {
+        setFotoPerfilArchivo(null)
         setPerfilForm({
             nombre: usuario.nombre || usuario.usuario || '',
             apellido: usuario.apellido || '',
@@ -56,42 +149,107 @@ function DashboardLayout({ children }) {
         setPerfilAbierto(true)
     }
 
-    const cambiarFoto = (event) => {
+    const cambiarFoto = async (event) => {
         const file = event.target.files?.[0]
         if (!file) return
 
-        const reader = new FileReader()
-        reader.onload = () => {
+        if (!file.type.startsWith('image/')) {
+            Swal.fire('Archivo no válido', 'Elige una imagen para tu perfil.', 'warning')
+            event.target.value = ''
+            return
+        }
+
+        try {
+            const fotoComprimida = await comprimirImagenPerfil(file)
+            const fotoBlob = dataUrlToBlob(fotoComprimida)
+
             setPerfilForm((prev) => ({
                 ...prev,
-                foto: reader.result
+                foto: fotoComprimida
             }))
+            setFotoPerfilArchivo(fotoBlob)
+        } catch (error) {
+            console.log(error)
+            Swal.fire('Imagen no procesada', 'No se pudo preparar la imagen. Prueba con otra foto.', 'error')
+        } finally {
+            event.target.value = ''
         }
-        reader.readAsDataURL(file)
     }
 
-    const guardarPerfil = (event) => {
+    const guardarPerfil = async (event) => {
         event.preventDefault()
 
-        const usuarioActualizado = {
-            ...usuario,
-            nombre: perfilForm.nombre.trim() || usuario.nombre || usuario.usuario || 'Administrador',
-            apellido: perfilForm.apellido.trim(),
-            correo: perfilForm.correo.trim(),
-            telefono: perfilForm.telefono.trim(),
-            ...(esAdmin ? {
-                puesto: perfilForm.puesto.trim(),
-                ubicacion: perfilForm.ubicacion.trim(),
-                notas: perfilForm.notas.trim()
-            } : {}),
-            foto: perfilForm.foto
+        if (!usuario.id_empleado) {
+            Swal.fire('Sesión inválida', 'Vuelve a iniciar sesión para guardar tu perfil.', 'warning')
+            return
         }
 
-        const usuarioPersistido = guardarPerfilLocal(usuarioActualizado)
+        setGuardandoPerfil(true)
 
-        localStorage.setItem('usuario', JSON.stringify(usuarioPersistido))
-        setUsuario(usuarioPersistido)
-        setPerfilAbierto(false)
+        try {
+            const token = localStorage.getItem('token')
+            const formData = new FormData()
+            const nombre = perfilForm.nombre.trim() || usuario.nombre || usuario.usuario || 'Administrador'
+            const apellido = perfilForm.apellido.trim()
+            const correo = perfilForm.correo.trim()
+            const telefono = perfilForm.telefono.trim()
+
+            formData.append('nombre', nombre)
+            formData.append('apellido', apellido)
+            formData.append('correo', correo)
+            formData.append('telefono', telefono)
+
+            if (fotoPerfilArchivo) {
+                formData.append('foto', fotoPerfilArchivo, `perfil-${usuario.id_empleado}.jpg`)
+            } else if (perfilForm.foto?.startsWith('data:image/')) {
+                const fotoAjustada = await ajustarFotoPerfil(perfilForm.foto)
+                formData.append('foto', dataUrlToBlob(fotoAjustada), `perfil-${usuario.id_empleado}.jpg`)
+            }
+
+            const response = await api.put(
+                `/empleados/${usuario.id_empleado}`,
+                formData,
+                {
+                    headers: { Authorization: `Bearer ${token}` }
+                }
+            )
+
+            const usuarioActualizado = {
+                ...usuario,
+                ...(response.data.empleado || {
+                    nombre,
+                    apellido,
+                    correo,
+                    telefono
+                }),
+                ...(esAdmin ? {
+                    puesto: perfilForm.puesto.trim(),
+                    ubicacion: perfilForm.ubicacion.trim(),
+                    notas: perfilForm.notas.trim()
+                } : {})
+            }
+
+            const usuarioPersistido = guardarPerfilLocal(usuarioActualizado)
+
+            localStorage.setItem('usuario', JSON.stringify(usuarioPersistido))
+            setUsuario(usuarioPersistido)
+            setPerfilForm((prev) => ({
+                ...prev,
+                foto: usuarioPersistido.foto || prev.foto
+            }))
+            setFotoPerfilArchivo(null)
+            setPerfilAbierto(false)
+            Swal.fire('Perfil guardado', 'La foto y tus datos se guardaron correctamente.', 'success')
+        } catch (error) {
+            console.log(error)
+            const mensaje = error.response?.status === 413
+                ? 'La imagen era demasiado grande, pero ya activamos el ajuste automático. Selecciónala de nuevo y guarda.'
+                : error.response?.data?.mensaje || 'No se pudo guardar el perfil.'
+
+            Swal.fire('Error', mensaje, 'error')
+        } finally {
+            setGuardandoPerfil(false)
+        }
     }
 
     const obtenerNotificacionesVentas = async ({ inicial = false } = {}) => {
@@ -163,6 +321,7 @@ function DashboardLayout({ children }) {
     }, [notificacionesAbiertas])
 
     const links = [
+        { to: '/bienvenida', label: 'Inicio', icon: FaHome },
         { to: '/dashboard', label: 'Dashboard', icon: FaChartLine },
         { to: '/plantas', label: 'Inventario', icon: FaLeaf },
         { to: '/ventas', label: 'Ventas', icon: FaCashRegister },
@@ -179,18 +338,55 @@ function DashboardLayout({ children }) {
         day: '2-digit',
         month: 'long'
     }).format(new Date())
+    const tema = esAdmin
+        ? {
+            panel: 'Panel administrativo',
+            logo: 'bg-emerald-500 text-slate-950',
+            logoMovil: 'bg-emerald-600 text-white',
+            activo: 'bg-emerald-500 text-slate-950',
+            activoMovil: 'bg-emerald-600 text-white',
+            focus: 'focus:ring-emerald-400/70',
+            avatar: 'bg-emerald-500 text-slate-950 ring-emerald-400/20 group-hover:ring-emerald-300',
+            hoverTexto: 'text-emerald-300',
+            hoverFlecha: 'group-hover:text-emerald-300',
+            modulo: 'text-emerald-700',
+            rolCaja: 'border-emerald-100 bg-emerald-50',
+            rolTexto: 'text-emerald-800',
+            rolSubtexto: 'text-emerald-700',
+            botonSuave: 'border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100',
+            focoInput: 'focus:border-emerald-600',
+            guardar: 'bg-emerald-700 hover:bg-emerald-800'
+        }
+        : {
+            panel: 'Panel de ventas',
+            logo: 'bg-blue-500 text-white',
+            logoMovil: 'bg-blue-600 text-white',
+            activo: 'bg-blue-500 text-white',
+            activoMovil: 'bg-blue-600 text-white',
+            focus: 'focus:ring-blue-400/70',
+            avatar: 'bg-blue-500 text-white ring-blue-400/20 group-hover:ring-blue-300',
+            hoverTexto: 'text-blue-300',
+            hoverFlecha: 'group-hover:text-blue-300',
+            modulo: 'text-blue-700',
+            rolCaja: 'border-blue-100 bg-blue-50',
+            rolTexto: 'text-blue-800',
+            rolSubtexto: 'text-blue-700',
+            botonSuave: 'border-blue-200 bg-blue-50 text-blue-800 hover:bg-blue-100',
+            focoInput: 'focus:border-blue-600',
+            guardar: 'bg-blue-700 hover:bg-blue-800'
+        }
 
     return (
         <div className="min-h-screen bg-slate-100 text-slate-900">
             <aside className="fixed inset-y-0 left-0 z-20 hidden w-72 overflow-hidden border-r border-slate-800 bg-slate-950 px-5 py-6 text-white lg:flex lg:flex-col">
                 <div className="flex items-center gap-3 border-b border-white/10 pb-6">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-md bg-emerald-500 text-slate-950">
+                    <div className={`flex h-11 w-11 items-center justify-center rounded-md ${tema.logo}`}>
                         <FaSeedling />
                     </div>
 
                     <div>
                         <h1 className="text-lg font-bold">Invernadero</h1>
-                        <p className="text-xs text-slate-400">Panel administrativo</p>
+                        <p className="text-xs text-slate-400">{tema.panel}</p>
                     </div>
                 </div>
 
@@ -202,7 +398,7 @@ function DashboardLayout({ children }) {
                             className={({ isActive }) =>
                                 `flex items-center gap-3 rounded-md px-4 py-3 text-sm font-semibold transition ${
                                     isActive
-                                        ? 'bg-emerald-500 text-slate-950'
+                                        ? tema.activo
                                         : 'text-slate-300 hover:bg-white/10 hover:text-white'
                                 }`
                             }
@@ -217,13 +413,13 @@ function DashboardLayout({ children }) {
                     <button
                         type="button"
                         onClick={abrirPerfil}
-                        className="group w-full rounded-md p-2 text-left transition hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-emerald-400/70"
+                        className={`group w-full rounded-md p-2 text-left transition hover:bg-white/10 focus:outline-none focus:ring-2 ${tema.focus}`}
                     >
                         <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Sesión activa</p>
                         <div className="mt-3 flex items-center gap-3">
-                            <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-emerald-500 text-slate-950 ring-2 ring-emerald-400/20 transition group-hover:ring-emerald-300">
+                            <div className={`flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full ring-2 transition ${tema.avatar}`}>
                                 {usuario.foto ? (
-                                    <img src={usuario.foto} alt={usuario.nombre || 'Perfil'} className="h-full w-full object-cover" />
+                                    <img src={obtenerFotoPerfilSrc(usuario.foto)} alt={usuario.nombre || 'Perfil'} className="h-full w-full object-cover" />
                                 ) : (
                                     <FaUserTie />
                                 )}
@@ -231,9 +427,9 @@ function DashboardLayout({ children }) {
                             <div className="min-w-0 flex-1">
                                 <p className="truncate font-semibold">{`${usuario.nombre || usuario.usuario || 'Administrador'} ${usuario.apellido || ''}`.trim()}</p>
                                 <p className="truncate text-sm text-slate-400">{usuario.correo || 'Acceso interno'}</p>
-                                <p className="mt-1 text-xs font-semibold text-emerald-300 opacity-0 transition group-hover:opacity-100">Editar perfil</p>
+                                <p className={`mt-1 text-xs font-semibold opacity-0 transition group-hover:opacity-100 ${tema.hoverTexto}`}>Editar perfil</p>
                             </div>
-                            <FaChevronRight className="shrink-0 text-slate-500 transition group-hover:translate-x-1 group-hover:text-emerald-300" />
+                            <FaChevronRight className={`shrink-0 text-slate-500 transition group-hover:translate-x-1 ${tema.hoverFlecha}`} />
                         </div>
                     </button>
 
@@ -251,12 +447,12 @@ function DashboardLayout({ children }) {
                 <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/90 px-5 py-4 backdrop-blur lg:hidden">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-md bg-emerald-600 text-white">
+                            <div className={`flex h-10 w-10 items-center justify-center rounded-md ${tema.logoMovil}`}>
                                 <FaSeedling />
                             </div>
                             <div>
                                 <p className="font-bold">Invernadero</p>
-                                <p className="text-xs text-slate-500">Panel administrativo</p>
+                                <p className="text-xs text-slate-500">{tema.panel}</p>
                             </div>
                         </div>
 
@@ -278,7 +474,7 @@ function DashboardLayout({ children }) {
                                 className={({ isActive }) =>
                                     `flex min-h-16 flex-col items-center justify-center gap-1 rounded-md text-xs font-semibold ${
                                         isActive
-                                            ? 'bg-emerald-600 text-white'
+                                            ? tema.activoMovil
                                             : 'bg-slate-100 text-slate-600'
                                     }`
                                 }
@@ -293,7 +489,7 @@ function DashboardLayout({ children }) {
                 <div className="relative z-30 hidden border-b border-slate-200 bg-white/85 px-8 py-4 backdrop-blur lg:block">
                     <div className="flex items-center justify-between gap-4">
                         <div>
-                            <p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-700">
+                            <p className={`text-xs font-bold uppercase tracking-[0.18em] ${tema.modulo}`}>
                                 {moduloActivo.label}
                             </p>
                             <h2 className="mt-1 text-2xl font-bold text-slate-950">
@@ -306,12 +502,12 @@ function DashboardLayout({ children }) {
                                 <p className="text-xs font-semibold text-slate-500">Hoy</p>
                                 <p className="text-sm font-bold capitalize text-slate-800">{fechaActual}</p>
                             </div>
-                            <div className="rounded-lg border border-emerald-100 bg-emerald-50 px-4 py-2">
-                                <p className="flex items-center gap-2 text-sm font-bold text-emerald-800">
+                            <div className={`rounded-lg border px-4 py-2 ${tema.rolCaja}`}>
+                                <p className={`flex items-center gap-2 text-sm font-bold ${tema.rolTexto}`}>
                                     <FaShieldAlt />
                                     {esAdmin ? 'Administrador' : 'Empleado'}
                                 </p>
-                                <p className="text-xs text-emerald-700">Sesión segura</p>
+                                <p className={`text-xs ${tema.rolSubtexto}`}>Sesión segura</p>
                             </div>
                             {esAdmin && (
                                 <div ref={notificacionesRef} className="relative">
@@ -427,12 +623,12 @@ function DashboardLayout({ children }) {
                             <div className="flex items-center gap-4">
                                 <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-900 text-2xl text-white">
                                     {perfilForm.foto ? (
-                                        <img src={perfilForm.foto} alt="Vista previa" className="h-full w-full object-cover" />
+                                        <img src={obtenerFotoPerfilSrc(perfilForm.foto)} alt="Vista previa" className="h-full w-full object-cover" />
                                     ) : (
                                         <FaUserTie />
                                     )}
                                 </div>
-                                <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-bold text-emerald-800 hover:bg-emerald-100">
+                                <label className={`inline-flex cursor-pointer items-center gap-2 rounded-md border px-4 py-2 text-sm font-bold ${tema.botonSuave}`}>
                                     <FaCamera />
                                     Cambiar foto
                                     <input type="file" accept="image/*" onChange={cambiarFoto} className="hidden" />
@@ -444,26 +640,26 @@ function DashboardLayout({ children }) {
                                     value={perfilForm.nombre}
                                     onChange={(event) => setPerfilForm({ ...perfilForm, nombre: event.target.value })}
                                     placeholder="Nombre"
-                                    className="h-11 w-full rounded-md border border-slate-300 px-3 outline-none focus:border-emerald-600"
+                                    className={`h-11 w-full rounded-md border border-slate-300 px-3 outline-none ${tema.focoInput}`}
                                 />
                                 <input
                                     value={perfilForm.apellido}
                                     onChange={(event) => setPerfilForm({ ...perfilForm, apellido: event.target.value })}
                                     placeholder="Apellido"
-                                    className="h-11 w-full rounded-md border border-slate-300 px-3 outline-none focus:border-emerald-600"
+                                    className={`h-11 w-full rounded-md border border-slate-300 px-3 outline-none ${tema.focoInput}`}
                                 />
                                 <input
                                     type="email"
                                     value={perfilForm.correo}
                                     onChange={(event) => setPerfilForm({ ...perfilForm, correo: event.target.value })}
                                     placeholder="Correo"
-                                    className="h-11 w-full rounded-md border border-slate-300 px-3 outline-none focus:border-emerald-600"
+                                    className={`h-11 w-full rounded-md border border-slate-300 px-3 outline-none ${tema.focoInput}`}
                                 />
                                 <input
                                     value={perfilForm.telefono}
                                     onChange={(event) => setPerfilForm({ ...perfilForm, telefono: event.target.value })}
                                     placeholder="Teléfono"
-                                    className="h-11 w-full rounded-md border border-slate-300 px-3 outline-none focus:border-emerald-600"
+                                    className={`h-11 w-full rounded-md border border-slate-300 px-3 outline-none ${tema.focoInput}`}
                                 />
                             </div>
 
@@ -501,9 +697,13 @@ function DashboardLayout({ children }) {
                             >
                                 Cancelar
                             </button>
-                            <button type="submit" className="inline-flex items-center gap-2 rounded-md bg-emerald-700 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-800">
+                            <button
+                                type="submit"
+                                disabled={guardandoPerfil}
+                                className={`inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-bold text-white disabled:cursor-not-allowed disabled:bg-slate-400 ${tema.guardar}`}
+                            >
                                 <FaSave />
-                                Guardar
+                                {guardandoPerfil ? 'Guardando...' : 'Guardar'}
                             </button>
                         </div>
                     </form>

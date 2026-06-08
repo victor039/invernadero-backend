@@ -4,7 +4,7 @@ import Swal from 'sweetalert2'
 
 import DashboardLayout from '../layouts/DashboardLayout'
 import api from '../services/api'
-import { limpiarTexto, validarCorreo, validarLongitud, validarTelefono } from '../utils/validaciones'
+import { limpiarTexto, validarCorreo, validarLongitud, validarNombrePersona, validarTelefono } from '../utils/validaciones'
 
 const clienteInicial = {
     nombre: '',
@@ -44,7 +44,9 @@ function Clientes() {
         const nuevosErrores = {}
 
         if (!limpiarTexto(form.nombre)) nuevosErrores.nombre = 'El nombre es obligatorio'
+        if (limpiarTexto(form.nombre) && !validarNombrePersona(form.nombre)) nuevosErrores.nombre = 'Solo letras, espacios, apóstrofes o guiones'
         if (!validarLongitud(form.nombre, 80)) nuevosErrores.nombre = 'Máximo 80 caracteres'
+        if (limpiarTexto(form.apellido) && !validarNombrePersona(form.apellido)) nuevosErrores.apellido = 'Solo letras, espacios, apóstrofes o guiones'
         if (!validarLongitud(form.apellido, 80)) nuevosErrores.apellido = 'Máximo 80 caracteres'
         if (!validarCorreo(form.correo)) nuevosErrores.correo = 'Correo no válido'
         if (!validarTelefono(form.telefono)) nuevosErrores.telefono = 'Teléfono no válido'
@@ -56,8 +58,12 @@ function Clientes() {
 
     const handleChange = (e) => {
         const { name, value } = e.target
-        setForm({ ...form, [name]: value })
-        setErrores({ ...errores, [e.target.name]: '' })
+        const valorLimpio = ['nombre', 'apellido'].includes(name)
+            ? value.replace(/[0-9]/g, '')
+            : value
+
+        setForm({ ...form, [name]: valorLimpio })
+        setErrores({ ...errores, [name]: '' })
     }
 
     const limpiar = () => {

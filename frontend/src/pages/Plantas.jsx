@@ -22,6 +22,8 @@ const formatoMoneda = new Intl.NumberFormat('es-MX', {
     currency: 'MXN'
 })
 
+const API_ORIGIN = (import.meta.env.VITE_API_URL || 'https://invernadero-backend-pfgt.onrender.com/api').replace(/\/api\/?$/, '')
+
 function Plantas() {
     const [plantas, setPlantas] = useState([])
     const [categorias, setCategorias] = useState([])
@@ -204,7 +206,7 @@ function Plantas() {
                         onClick={(e) => e.stopPropagation()}
                     >
                         <img
-                            src={`http://localhost:3000/uploads/${plantaVista.imagen}`}
+                            src={`${API_ORIGIN}/uploads/${plantaVista.imagen}`}
                             alt={plantaVista.nombre_comun}
                             className="h-48 w-full object-cover"
                         />
@@ -437,7 +439,7 @@ function Plantas() {
                                     >
                                         <td className="px-3 py-4">
                                             <div className="flex items-center gap-3">
-                                                <img src={`http://localhost:3000/uploads/${planta.imagen}`} alt={planta.nombre_comun} className="h-12 w-12 rounded-md object-cover" />
+                                                <img src={`${API_ORIGIN}/uploads/${planta.imagen}`} alt={planta.nombre_comun} className="h-12 w-12 rounded-md object-cover" />
                                                 <div>
                                                     <p className="font-semibold text-slate-900">{planta.nombre_comun}</p>
                                                     <p className="text-xs text-slate-500">{planta.nombre_cientifico || 'Sin nombre científico'}</p>

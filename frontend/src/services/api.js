@@ -1,7 +1,9 @@
 import axios from 'axios'
 
+const DEFAULT_API_URL = 'https://invernadero-backend-pfgt.onrender.com/api'
+
 const normalizarBaseURL = (url) => {
-    const base = (url || 'http://localhost:3000/api').replace(/\/$/, '')
+    const base = (url || DEFAULT_API_URL).replace(/\/$/, '')
     return base.endsWith('/api') ? base : `${base}/api`
 }
 

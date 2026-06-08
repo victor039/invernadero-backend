@@ -19,7 +19,7 @@ const formatoMoneda = new Intl.NumberFormat('es-MX', {
     currency: 'MXN'
 })
 
-const API_ORIGIN = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').replace(/\/api\/?$/, '')
+const API_ORIGIN = (import.meta.env.VITE_API_URL || 'https://invernadero-backend-pfgt.onrender.com/api').replace(/\/api\/?$/, '')
 const coloresBarras = ['#047857', '#0f766e', '#2563eb', '#7c3aed', '#ca8a04', '#dc2626', '#0891b2', '#475569']
 
 const obtenerNombreProducto = (producto) => (
@@ -208,27 +208,33 @@ function Reportes() {
                             Top {productosGrafica.length}
                         </span>
                     </div>
-                    <div className="mt-5 h-[420px]">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={productosGrafica} margin={{ top: 10, right: 20, left: 0, bottom: 80 }}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                <XAxis
-                                    dataKey="etiqueta"
-                                    angle={-35}
-                                    textAnchor="end"
-                                    interval={0}
-                                    height={92}
-                                    tick={{ fontSize: 12, fill: '#475569' }}
-                                />
-                                <YAxis />
-                                <Tooltip content={tooltipProductos} />
-                                <Bar dataKey="total_vendido" radius={[4, 4, 0, 0]}>
-                                    {productosGrafica.map((producto, index) => (
-                                        <Cell key={producto.id_planta} fill={coloresBarras[index % coloresBarras.length]} />
-                                    ))}
-                                </Bar>
-                            </BarChart>
-                        </ResponsiveContainer>
+                    <div className="mt-5 h-[420px] min-h-[420px] min-w-0">
+                        {productosGrafica.length > 0 ? (
+                            <ResponsiveContainer width="100%" height="100%" minWidth={280} minHeight={360}>
+                                <BarChart data={productosGrafica} margin={{ top: 10, right: 20, left: 0, bottom: 80 }}>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                    <XAxis
+                                        dataKey="etiqueta"
+                                        angle={-35}
+                                        textAnchor="end"
+                                        interval={0}
+                                        height={92}
+                                        tick={{ fontSize: 12, fill: '#475569' }}
+                                    />
+                                    <YAxis />
+                                    <Tooltip content={tooltipProductos} />
+                                    <Bar dataKey="total_vendido" radius={[4, 4, 0, 0]}>
+                                        {productosGrafica.map((producto, index) => (
+                                            <Cell key={producto.id_planta} fill={coloresBarras[index % coloresBarras.length]} />
+                                        ))}
+                                    </Bar>
+                                </BarChart>
+                            </ResponsiveContainer>
+                        ) : (
+                            <div className="flex h-full min-h-[360px] items-center justify-center rounded-lg border border-dashed border-slate-200 bg-slate-50 text-sm font-semibold text-slate-500">
+                                Aún no hay ventas para graficar.
+                            </div>
+                        )}
                     </div>
                 </div>
 

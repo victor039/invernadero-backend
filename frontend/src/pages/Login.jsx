@@ -122,7 +122,7 @@ function Login() {
             setErrores({})
             setMensajeError('')
 
-            navigate('/dashboard')
+            navigate('/bienvenida')
 
         } catch (error) {
 

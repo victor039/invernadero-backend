@@ -30,7 +30,13 @@ export const guardarPerfilLocal = (usuario) => {
     return usuarioGuardado
 }
 
-export const mezclarPerfilLocal = (usuario) => ({
-    ...usuario,
-    ...obtenerPerfilLocal(usuario?.id_empleado)
-})
+export const mezclarPerfilLocal = (usuario) => {
+    const perfilLocal = obtenerPerfilLocal(usuario?.id_empleado)
+
+    return {
+        puesto: perfilLocal.puesto,
+        ubicacion: perfilLocal.ubicacion,
+        notas: perfilLocal.notas,
+        ...usuario
+    }
+}

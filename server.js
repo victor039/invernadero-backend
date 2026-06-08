@@ -30,11 +30,30 @@ async function asegurarColumnasVentas() {
     await sequelize.query('UPDATE ventas SET ticket_correo = false WHERE ticket_correo IS NULL');
 }
 
+async function asegurarColumnasEmpleados() {
+    const queryInterface = sequelize.getQueryInterface();
+    const tablaEmpleados = await queryInterface.describeTable('empleados');
+
+    if (!tablaEmpleados.foto) {
+        await queryInterface.addColumn('empleados', 'foto', {
+            type: DataTypes.TEXT('long'),
+            allowNull: true
+        });
+        return;
+    }
+
+    await queryInterface.changeColumn('empleados', 'foto', {
+        type: DataTypes.TEXT('long'),
+        allowNull: true
+    });
+}
+
 async function startServer() {
     try {
 
         await sequelize.authenticate();
         await asegurarColumnasVentas();
+        await asegurarColumnasEmpleados();
 
         if (process.env.DB_SYNC === 'true') {
             await sequelize.sync({ alter: true });

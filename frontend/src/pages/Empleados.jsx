@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Swal from 'sweetalert2'
-import { FaEdit, FaPlus, FaTrash, FaUsers } from 'react-icons/fa'
+import { FaCamera, FaEdit, FaIdBadge, FaPlus, FaShieldAlt, FaTrash, FaUserTie, FaUsers } from 'react-icons/fa'
 
 import DashboardLayout from '../layouts/DashboardLayout'
 import api from '../services/api'
-import { limpiarTexto, validarCorreo, validarLongitud, validarTelefono } from '../utils/validaciones'
+import { limpiarTexto, validarCorreo, validarLongitud, validarNombrePersona, validarTelefono, validarUsuario } from '../utils/validaciones'
 
 const empleadoInicial = {
     nombre: '',
@@ -16,6 +16,59 @@ const empleadoInicial = {
     id_rol: '2'
 }
 
+const API_ORIGIN = (import.meta.env.VITE_API_URL || 'https://invernadero-backend-pfgt.onrender.com/api').replace(/\/api\/?$/, '')
+
+const obtenerFotoEmpleadoSrc = (foto) => {
+    if (!foto) return ''
+    if (foto.startsWith('data:image/') || foto.startsWith('http')) return foto
+
+    const ruta = foto.replace(/^\/?uploads\//, '').replace(/^\/+/, '')
+    return `${API_ORIGIN}/uploads/${ruta}`
+}
+
+const dataUrlToBlob = (dataUrl) => {
+    const [metadata, base64] = dataUrl.split(',')
+    const mime = metadata.match(/data:(.*);base64/)?.[1] || 'image/jpeg'
+    const binary = atob(base64)
+    const bytes = new Uint8Array(binary.length)
+
+    for (let index = 0; index < binary.length; index += 1) {
+        bytes[index] = binary.charCodeAt(index)
+    }
+
+    return new Blob([bytes], { type: mime })
+}
+
+const comprimirImagenEmpleado = (file) => new Promise((resolve, reject) => {
+    const image = new Image()
+    const objectUrl = URL.createObjectURL(file)
+
+    image.onload = () => {
+        const size = 320
+        const canvas = document.createElement('canvas')
+        const ctx = canvas.getContext('2d')
+        const escala = Math.max(size / image.width, size / image.height)
+        const ancho = image.width * escala
+        const alto = image.height * escala
+
+        canvas.width = size
+        canvas.height = size
+        ctx.fillStyle = '#ffffff'
+        ctx.fillRect(0, 0, size, size)
+        ctx.drawImage(image, (size - ancho) / 2, (size - alto) / 2, ancho, alto)
+
+        URL.revokeObjectURL(objectUrl)
+        resolve(canvas.toDataURL('image/jpeg', 0.78))
+    }
+
+    image.onerror = () => {
+        URL.revokeObjectURL(objectUrl)
+        reject(new Error('No se pudo procesar la imagen'))
+    }
+
+    image.src = objectUrl
+})
+
 function Empleados() {
     const [empleados, setEmpleados] = useState([])
     const [busqueda, setBusqueda] = useState('')
@@ -23,6 +76,8 @@ function Empleados() {
     const [errores, setErrores] = useState({})
     const [editandoId, setEditandoId] = useState(null)
     const [guardando, setGuardando] = useState(false)
+    const [fotoPreview, setFotoPreview] = useState('')
+    const [fotoArchivo, setFotoArchivo] = useState(null)
     const formRef = useRef(null)
 
     const token = localStorage.getItem('token')
@@ -46,10 +101,13 @@ function Empleados() {
         const nuevosErrores = {}
 
         if (!limpiarTexto(form.nombre)) nuevosErrores.nombre = 'El nombre es obligatorio'
+        if (limpiarTexto(form.nombre) && !validarNombrePersona(form.nombre)) nuevosErrores.nombre = 'Solo letras, espacios, apóstrofes o guiones'
         if (!validarLongitud(form.nombre, 80)) nuevosErrores.nombre = 'Máximo 80 caracteres'
+        if (limpiarTexto(form.apellido) && !validarNombrePersona(form.apellido)) nuevosErrores.apellido = 'Solo letras, espacios, apóstrofes o guiones'
         if (!validarLongitud(form.apellido, 80)) nuevosErrores.apellido = 'Máximo 80 caracteres'
         if (!limpiarTexto(form.usuario)) nuevosErrores.usuario = 'El usuario es obligatorio'
-        if (!/^[a-zA-Z0-9._-]{3,30}$/.test(limpiarTexto(form.usuario))) nuevosErrores.usuario = 'Usa 3-30 caracteres, letras/números/punto/guion'
+        if (!validarUsuario(form.usuario)) nuevosErrores.usuario = 'Usa 3-30 caracteres, letras/números/punto/guion'
+        if (!limpiarTexto(form.correo)) nuevosErrores.correo = 'El correo es obligatorio'
         if (!validarCorreo(form.correo)) nuevosErrores.correo = 'Correo no válido'
         if (!validarTelefono(form.telefono)) nuevosErrores.telefono = 'Teléfono no válido'
         if (!editandoId && form.contraseña.length < 4) nuevosErrores.contraseña = 'Mínimo 4 caracteres'
@@ -63,11 +121,40 @@ function Empleados() {
         setForm(empleadoInicial)
         setErrores({})
         setEditandoId(null)
+        setFotoPreview('')
+        setFotoArchivo(null)
     }
 
     const handleChange = (e) => {
-        setForm({ ...form, [e.target.name]: e.target.value })
-        setErrores({ ...errores, [e.target.name]: '' })
+        const { name, value } = e.target
+        const valorLimpio = ['nombre', 'apellido'].includes(name)
+            ? value.replace(/[0-9]/g, '')
+            : value
+
+        setForm({ ...form, [name]: valorLimpio })
+        setErrores({ ...errores, [name]: '' })
+    }
+
+    const cambiarFoto = async (event) => {
+        const file = event.target.files?.[0]
+        if (!file) return
+
+        if (!file.type.startsWith('image/')) {
+            Swal.fire('Archivo no válido', 'Selecciona una imagen para el empleado.', 'warning')
+            event.target.value = ''
+            return
+        }
+
+        try {
+            const fotoComprimida = await comprimirImagenEmpleado(file)
+            setFotoPreview(fotoComprimida)
+            setFotoArchivo(dataUrlToBlob(fotoComprimida))
+        } catch (error) {
+            console.log(error)
+            Swal.fire('Imagen no procesada', 'No se pudo preparar la foto del empleado.', 'error')
+        } finally {
+            event.target.value = ''
+        }
     }
 
     const guardar = async (e) => {
@@ -76,9 +163,22 @@ function Empleados() {
 
         try {
             setGuardando(true)
-            const payload = { ...form, id_rol: Number(form.id_rol) }
+            const payload = new FormData()
 
-            if (editandoId && !payload.contraseña) delete payload.contraseña
+            payload.append('nombre', form.nombre)
+            payload.append('apellido', form.apellido)
+            payload.append('correo', form.correo)
+            payload.append('telefono', form.telefono)
+            payload.append('usuario', form.usuario)
+            payload.append('id_rol', Number(form.id_rol))
+
+            if (form.contraseña) {
+                payload.append('password', form.contraseña)
+            }
+
+            if (fotoArchivo) {
+                payload.append('foto', fotoArchivo, `empleado-${form.usuario || 'perfil'}.jpg`)
+            }
 
             if (editandoId) {
                 await api.put(`/empleados/${editandoId}`, payload, { headers })
@@ -110,6 +210,8 @@ function Empleados() {
             contraseña: '',
             id_rol: String(empleado.id_rol || '2')
         })
+        setFotoPreview(empleado.foto || '')
+        setFotoArchivo(null)
 
         setTimeout(() => {
             formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -126,7 +228,12 @@ function Empleados() {
 
         const result = await Swal.fire({
             title: 'Eliminar empleado',
-            text: `Se eliminará a ${empleado.nombre || empleado.usuario}.`,
+            html: `
+                <div style="text-align:left">
+                    <p>Se eliminará a <strong>${empleado.nombre || empleado.usuario}</strong>.</p>
+                    <p style="margin-top:8px;color:#64748b">Si tiene ventas registradas, se conservarán y pasarán al administrador activo para no perder historial.</p>
+                </div>
+            `,
             icon: 'warning',
             showCancelButton: true,
             confirmButtonText: 'Eliminar',
@@ -137,12 +244,20 @@ function Empleados() {
         if (!result.isConfirmed) return
 
         try {
-            await api.delete(`/empleados/${empleado.id_empleado}`, { headers })
-            Swal.fire('Eliminado', 'Empleado eliminado', 'success')
+            const response = await api.delete(`/empleados/${empleado.id_empleado}`, { headers })
+            const ventasReasignadas = Number(response.data?.ventasReasignadas || 0)
+
+            Swal.fire(
+                'Eliminado',
+                ventasReasignadas > 0
+                    ? `Empleado eliminado. ${ventasReasignadas} ventas se conservaron en el historial.`
+                    : 'Empleado eliminado correctamente.',
+                'success'
+            )
             obtenerEmpleados()
         } catch (error) {
             console.log(error)
-            Swal.fire('Error', 'No se pudo eliminar el empleado', 'error')
+            Swal.fire('Error', error.response?.data?.mensaje || 'No se pudo eliminar el empleado', 'error')
         }
     }
 
@@ -150,6 +265,9 @@ function Empleados() {
         const texto = `${empleado.nombre} ${empleado.apellido} ${empleado.usuario} ${empleado.correo}`.toLowerCase()
         return texto.includes(busqueda.toLowerCase())
     })
+    const totalAdmins = empleados.filter((empleado) => Number(empleado.id_rol) === 1).length
+    const totalOperativos = empleados.filter((empleado) => Number(empleado.id_rol) !== 1).length
+    const conFoto = empleados.filter((empleado) => Boolean(empleado.foto)).length
 
     return (
         <DashboardLayout>
@@ -178,6 +296,26 @@ function Empleados() {
                 <form onSubmit={guardar} autoComplete="off" className="mb-6 grid grid-cols-1 gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 md:grid-cols-2 xl:grid-cols-4">
                     <input type="text" name="fake-employee-user" autoComplete="off" className="hidden" tabIndex="-1" aria-hidden="true" />
                     <input type="text" name="fake-employee-pass" autoComplete="off" className="hidden" tabIndex="-1" aria-hidden="true" />
+                    <div className="rounded-lg border border-dashed border-slate-300 bg-white p-3 xl:row-span-2">
+                        <div className="flex items-center gap-3">
+                            <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-900 text-xl text-white">
+                                {fotoPreview ? (
+                                    <img src={obtenerFotoEmpleadoSrc(fotoPreview)} alt="Foto del empleado" className="h-full w-full object-cover" />
+                                ) : (
+                                    <FaUserTie />
+                                )}
+                            </div>
+                            <div className="min-w-0">
+                                <p className="text-sm font-bold text-slate-900">Foto del empleado</p>
+                                <p className="text-xs text-slate-500">Se ajusta automáticamente.</p>
+                            </div>
+                        </div>
+                        <label className="mt-3 inline-flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-md border border-amber-200 bg-amber-50 text-sm font-bold text-amber-800 transition hover:bg-amber-100">
+                            <FaCamera />
+                            {fotoPreview ? 'Cambiar foto' : 'Agregar foto'}
+                            <input type="file" accept="image/*" onChange={cambiarFoto} className="hidden" />
+                        </label>
+                    </div>
                     <div>
                         <input name="nombre" value={form.nombre} onChange={handleChange} placeholder="Nombre" className="h-11 w-full rounded-md border border-slate-300 px-3 outline-none focus:border-emerald-600" />
                         <p className="mt-1 min-h-5 text-xs text-red-600">{errores.nombre}</p>
@@ -218,6 +356,30 @@ function Empleados() {
                     </div>
                 </form>
 
+                <section className="mb-5 grid grid-cols-1 gap-3 md:grid-cols-3">
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                        <div className="flex items-center justify-between">
+                            <p className="text-sm font-semibold text-slate-500">Personal activo</p>
+                            <FaUsers className="text-emerald-700" />
+                        </div>
+                        <p className="mt-2 text-2xl font-bold text-slate-950">{empleados.length}</p>
+                    </div>
+                    <div className="rounded-lg border border-blue-100 bg-blue-50 p-4">
+                        <div className="flex items-center justify-between">
+                            <p className="text-sm font-semibold text-blue-700">Operativos</p>
+                            <FaIdBadge className="text-blue-700" />
+                        </div>
+                        <p className="mt-2 text-2xl font-bold text-blue-950">{totalOperativos}</p>
+                    </div>
+                    <div className="rounded-lg border border-amber-100 bg-amber-50 p-4">
+                        <div className="flex items-center justify-between">
+                            <p className="text-sm font-semibold text-amber-700">Admins / fotos</p>
+                            <FaShieldAlt className="text-amber-700" />
+                        </div>
+                        <p className="mt-2 text-2xl font-bold text-amber-950">{totalAdmins} / {conFoto}</p>
+                    </div>
+                </section>
+
                 <div className="overflow-x-auto">
                     <table className="w-full min-w-[760px] text-left text-sm">
                         <thead>
@@ -239,8 +401,19 @@ function Empleados() {
                             ) : empleadosFiltrados.map((empleado) => (
                                 <tr key={empleado.id_empleado} className="border-b transition last:border-0 hover:bg-amber-50/60">
                                     <td className="px-3 py-4">
-                                        <p className="font-semibold text-slate-900">{empleado.nombre} {empleado.apellido}</p>
-                                        <p className="text-xs text-slate-500">ID #{empleado.id_empleado}</p>
+                                        <div className="flex items-center gap-3">
+                                            <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-900 text-sm font-bold text-white">
+                                                {empleado.foto ? (
+                                                    <img src={obtenerFotoEmpleadoSrc(empleado.foto)} alt={`${empleado.nombre} ${empleado.apellido}`} className="h-full w-full object-cover" />
+                                                ) : (
+                                                    <FaUserTie />
+                                                )}
+                                            </div>
+                                            <div>
+                                                <p className="font-semibold text-slate-900">{empleado.nombre} {empleado.apellido}</p>
+                                                <p className="text-xs text-slate-500">ID #{empleado.id_empleado}</p>
+                                            </div>
+                                        </div>
                                     </td>
                                     <td className="px-3 py-4">{empleado.usuario}</td>
                                     <td className="px-3 py-4">

@@ -9,7 +9,7 @@ function PrivateRoute({ children, rolesPermitidos }) {
     if (!token) return <Navigate to="/" />
 
     if (rolesPermitidos && !rolesPermitidos.includes(rolUsuario)) {
-        return <Navigate to="/dashboard" replace />
+        return <Navigate to="/bienvenida" replace />
     }
 
     return children

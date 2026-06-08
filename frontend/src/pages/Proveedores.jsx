@@ -4,7 +4,7 @@ import Swal from 'sweetalert2'
 
 import DashboardLayout from '../layouts/DashboardLayout'
 import api from '../services/api'
-import { limpiarTexto, validarCorreo, validarLongitud, validarTelefono } from '../utils/validaciones'
+import { limpiarTexto, validarCorreo, validarLongitud, validarNombrePersona, validarSinSoloNumeros, validarTelefono } from '../utils/validaciones'
 
 const proveedorInicial = {
     nombre_empresa: '',
@@ -44,7 +44,9 @@ function Proveedores() {
         const nuevosErrores = {}
 
         if (!limpiarTexto(form.nombre_empresa)) nuevosErrores.nombre_empresa = 'El nombre de la empresa es obligatorio'
+        if (limpiarTexto(form.nombre_empresa) && !validarSinSoloNumeros(form.nombre_empresa)) nuevosErrores.nombre_empresa = 'No puede ser solo números'
         if (!validarLongitud(form.nombre_empresa, 100)) nuevosErrores.nombre_empresa = 'Máximo 100 caracteres'
+        if (limpiarTexto(form.contacto) && !validarNombrePersona(form.contacto)) nuevosErrores.contacto = 'Solo letras, espacios, apóstrofes o guiones'
         if (!validarLongitud(form.contacto, 90)) nuevosErrores.contacto = 'Máximo 90 caracteres'
         if (!validarCorreo(form.correo)) nuevosErrores.correo = 'Correo no válido'
         if (!validarTelefono(form.telefono)) nuevosErrores.telefono = 'Teléfono no válido'
@@ -55,8 +57,13 @@ function Proveedores() {
     }
 
     const handleChange = (e) => {
-        setForm({ ...form, [e.target.name]: e.target.value })
-        setErrores({ ...errores, [e.target.name]: '' })
+        const { name, value } = e.target
+        const valorLimpio = name === 'contacto'
+            ? value.replace(/[0-9]/g, '')
+            : value
+
+        setForm({ ...form, [name]: valorLimpio })
+        setErrores({ ...errores, [name]: '' })
     }
 
     const limpiar = () => {

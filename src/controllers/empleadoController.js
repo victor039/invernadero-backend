@@ -1,7 +1,54 @@
 const { Op } = require('sequelize')
 const bcrypt = require('bcrypt')
+const fs = require('fs')
+const path = require('path')
 
 const Empleado = require('../models/Empleado')
+const Venta = require('../models/Venta')
+const sequelize = require('../config/database')
+
+const guardarFotoPerfil = (foto, idEmpleado) => {
+    if (!foto || typeof foto !== 'string') return foto
+    if (!foto.startsWith('data:image/')) return foto
+
+    const match = foto.match(/^data:image\/(png|jpe?g|webp);base64,(.+)$/)
+
+    if (!match) {
+        throw new Error('Formato de imagen no válido')
+    }
+
+    const extension = match[1] === 'jpeg' ? 'jpg' : match[1]
+    const buffer = Buffer.from(match[2], 'base64')
+
+    if (buffer.length > 2 * 1024 * 1024) {
+        throw new Error('La imagen de perfil sigue siendo demasiado grande')
+    }
+
+    const carpetaPerfiles = path.join(__dirname, '../../uploads/perfiles')
+    fs.mkdirSync(carpetaPerfiles, { recursive: true })
+
+    const nombreArchivo = `perfil-${idEmpleado}-${Date.now()}.${extension}`
+    fs.writeFileSync(path.join(carpetaPerfiles, nombreArchivo), buffer)
+
+    return `perfiles/${nombreArchivo}`
+}
+
+const obtenerFotoPerfilSubida = (file) => {
+    if (!file) return undefined
+    return `perfiles/${file.filename}`
+}
+
+const eliminarFotoPerfil = (foto) => {
+    if (!foto || typeof foto !== 'string') return
+    if (foto.startsWith('data:image/') || foto.startsWith('http')) return
+
+    const rutaRelativa = foto.replace(/^\/?uploads\//, '').replace(/^\/+/, '')
+    const rutaFoto = path.join(__dirname, '../../uploads', rutaRelativa)
+
+    if (rutaFoto.startsWith(path.join(__dirname, '../../uploads')) && fs.existsSync(rutaFoto)) {
+        fs.unlinkSync(rutaFoto)
+    }
+}
 
 const limpiarEmpleado = (empleado) => {
     const data = empleado.toJSON()
@@ -51,11 +98,21 @@ exports.crearEmpleado = async (req, res) => {
             apellido,
             correo,
             telefono,
-            foto,
+            foto: null,
             usuario,
             contraseña: passwordHash,
             id_rol
         })
+
+        if (foto) {
+            await empleado.update({
+                foto: obtenerFotoPerfilSubida(req.file) || guardarFotoPerfil(foto, empleado.id_empleado)
+            })
+        } else if (req.file) {
+            await empleado.update({
+                foto: obtenerFotoPerfilSubida(req.file)
+            })
+        }
 
         res.status(201).json(limpiarEmpleado(empleado))
     } catch (error) {
@@ -85,6 +142,15 @@ exports.obtenerEmpleados = async (req, res) => {
 
 exports.actualizarEmpleado = async (req, res) => {
     try {
+        const esAdmin = Number(req.usuario?.id_rol) === 1
+        const esPerfilPropio = Number(req.params.id) === Number(req.usuario?.id)
+
+        if (!esAdmin && !esPerfilPropio) {
+            return res.status(403).json({
+                mensaje: 'Solo puedes actualizar tu propio perfil'
+            })
+        }
+
         const empleado = await Empleado.findByPk(req.params.id)
 
         if (!empleado) {
@@ -125,12 +191,15 @@ exports.actualizarEmpleado = async (req, res) => {
             }
         }
 
+        const fotoPerfil = obtenerFotoPerfilSubida(req.file)
+            || (foto === undefined ? undefined : guardarFotoPerfil(foto, empleado.id_empleado))
+
         const datosActualizar = {
             nombre,
             apellido,
             correo,
             telefono,
-            foto,
+            foto: fotoPerfil,
             usuario,
             id_rol
         }
@@ -152,6 +221,7 @@ exports.actualizarEmpleado = async (req, res) => {
             empleado: limpiarEmpleado(empleado)
         })
     } catch (error) {
+        console.error('Error al actualizar empleado:', error)
         res.status(500).json({
             mensaje: 'Error al actualizar empleado',
             error: error.message
@@ -160,21 +230,56 @@ exports.actualizarEmpleado = async (req, res) => {
 }
 
 exports.eliminarEmpleado = async (req, res) => {
+    const transaction = await sequelize.transaction()
+
     try {
-        const empleado = await Empleado.findByPk(req.params.id)
+        const idEmpleado = Number(req.params.id)
+        const idUsuarioActual = Number(req.usuario?.id)
+
+        if (idEmpleado === idUsuarioActual) {
+            await transaction.rollback()
+            return res.status(400).json({
+                mensaje: 'No puedes eliminar tu propio usuario activo'
+            })
+        }
+
+        const empleado = await Empleado.findByPk(idEmpleado, { transaction })
 
         if (!empleado) {
+            await transaction.rollback()
             return res.status(404).json({
                 mensaje: 'Empleado no encontrado'
             })
         }
 
-        await empleado.destroy()
+        const ventasAsociadas = await Venta.count({
+            where: { id_empleado: empleado.id_empleado },
+            transaction
+        })
+
+        if (ventasAsociadas > 0) {
+            await Venta.update(
+                { id_empleado: idUsuarioActual || 1 },
+                {
+                    where: { id_empleado: empleado.id_empleado },
+                    transaction
+                }
+            )
+        }
+
+        const fotoEmpleado = empleado.foto
+
+        await empleado.destroy({ transaction })
+        await transaction.commit()
+        eliminarFotoPerfil(fotoEmpleado)
 
         res.json({
-            mensaje: 'Empleado eliminado'
+            mensaje: 'Empleado eliminado',
+            ventasReasignadas: ventasAsociadas
         })
     } catch (error) {
+        await transaction.rollback()
+        console.error('Error al eliminar empleado:', error)
         res.status(500).json({
             mensaje: 'Error al eliminar empleado',
             error: error.message
