@@ -9,6 +9,7 @@ const limpiarEmpleado = (empleado) => {
     const data = empleado.toJSON()
 
     delete data.contraseña
+    delete data.password_hash
 
     return data
 
@@ -41,9 +42,10 @@ exports.login = async (req, res) => {
 
         }
 
-        const passwordGuardada = empleado.contraseña || ''
+        const passwordGuardada = empleado.password_hash || empleado.contraseña || ''
 
         let passwordValida = false
+        let requiereRehash = false
 
         if (passwordGuardada.startsWith('$2')) {
             try {
@@ -53,13 +55,10 @@ exports.login = async (req, res) => {
             }
         } else {
             passwordValida = passwordGuardada === contraseña
+            requiereRehash = passwordValida
         }
 
-        const accesoAdminRespaldo =
-            empleado.usuario === 'admin' &&
-            ['123456', 'MichiNegro'].includes(contraseña)
-
-        if (!passwordValida && !accesoAdminRespaldo) {
+        if (!passwordValida) {
 
             return res.status(401).json({
 
@@ -67,6 +66,14 @@ exports.login = async (req, res) => {
 
             })
 
+        }
+
+        if (requiereRehash) {
+            const passwordHash = await bcrypt.hash(contraseña, 10)
+            await empleado.update({
+                contraseña: passwordHash,
+                password_hash: passwordHash
+            })
         }
 
         const token = jwt.sign(

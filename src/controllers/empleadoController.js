@@ -53,6 +53,7 @@ const eliminarFotoPerfil = (foto) => {
 const limpiarEmpleado = (empleado) => {
     const data = empleado.toJSON()
     delete data.contraseña
+    delete data.password_hash
     return data
 }
 
@@ -101,6 +102,7 @@ exports.crearEmpleado = async (req, res) => {
             foto: null,
             usuario,
             contraseña: passwordHash,
+            password_hash: passwordHash,
             id_rol
         })
 
@@ -211,7 +213,9 @@ exports.actualizarEmpleado = async (req, res) => {
         })
 
         if (contraseña || password) {
-            datosActualizar.contraseña = await bcrypt.hash(contraseña || password, 10)
+            const passwordHash = await bcrypt.hash(contraseña || password, 10)
+            datosActualizar.contraseña = passwordHash
+            datosActualizar.password_hash = passwordHash
         }
 
         await empleado.update(datosActualizar)

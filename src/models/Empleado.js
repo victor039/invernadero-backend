@@ -40,6 +40,10 @@ const Empleado = sequelize.define(
             type: DataTypes.STRING
         },
 
+        password_hash: {
+            type: DataTypes.STRING
+        },
+
         id_rol: {
             type: DataTypes.INTEGER
         },

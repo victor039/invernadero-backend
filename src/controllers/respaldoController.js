@@ -1,5 +1,6 @@
 const fs = require('fs')
 const path = require('path')
+const PDFDocument = require('pdfkit')
 
 const sequelize = require('../config/database')
 
@@ -132,6 +133,105 @@ const generarContenidoRespaldo = async (formatoSalida = obtenerDialect()) => {
     return lineas.join('\n')
 }
 
+const obtenerResumenTablas = async () => {
+    const queryInterface = sequelize.getQueryInterface()
+    const tablas = ordenarTablasParaImportacion(await queryInterface.showAllTables())
+    const dialect = obtenerDialect()
+    const resumen = []
+
+    for (const tabla of tablas) {
+        const nombreTabla = typeof tabla === 'string' ? tabla : tabla.tableName
+        const tablaSql = entreComillas(nombreTabla, dialect)
+        const [resultado] = await sequelize.query(`SELECT COUNT(*) AS total FROM ${tablaSql}`)
+        const total = Number(resultado[0]?.total || resultado[0]?.count || 0)
+
+        resumen.push({
+            tabla: nombreTabla,
+            total
+        })
+    }
+
+    return resumen
+}
+
+const generarPdfRespaldo = async ({ nombreArchivo, resumenTablas, contenidoSql }) => new Promise((resolve, reject) => {
+    const doc = new PDFDocument({
+        size: 'A4',
+        margin: 42
+    })
+    const chunks = []
+    const fecha = new Date()
+    const totalRegistros = resumenTablas.reduce((total, item) => total + item.total, 0)
+
+    doc.on('data', (chunk) => chunks.push(chunk))
+    doc.on('end', () => resolve(Buffer.concat(chunks)))
+    doc.on('error', reject)
+
+    doc.rect(0, 0, doc.page.width, 120).fill('#020617')
+    doc.rect(0, 120, doc.page.width, 5).fill('#10b981')
+    doc.fillColor('#ffffff').fontSize(24).text('Reporte de respaldo', 42, 36)
+    doc.fillColor('#a7f3d0').fontSize(10).text('Invernadero | Seguridad de datos', 42, 68)
+    doc.fillColor('#e2e8f0').fontSize(10).text(fecha.toLocaleString('es-MX'), 42, 86)
+    doc.roundedRect(420, 34, 132, 52, 8).fill('#064e3b')
+    doc.fillColor('#d1fae5').fontSize(9).text('REGISTROS', 438, 45)
+    doc.fillColor('#ffffff').fontSize(22).text(String(totalRegistros), 438, 58)
+
+    doc.fillColor('#0f172a').fontSize(15).text('Resumen general', 42, 155)
+    doc.fillColor('#64748b').fontSize(10).text(`Archivo sugerido: ${nombreArchivo}`, 42, 177)
+    doc.text(`Formato SQL incluido: ${obtenerDialect()}`, 42, 193)
+
+    const cards = [
+        { label: 'Tablas', value: resumenTablas.length, color: '#0f766e' },
+        { label: 'Registros', value: totalRegistros, color: '#2563eb' },
+        { label: 'Base de datos', value: process.env.DB_NAME || 'DATABASE_URL', color: '#7c3aed' }
+    ]
+
+    cards.forEach((card, index) => {
+        const x = 42 + (index * 178)
+        doc.roundedRect(x, 222, 158, 70, 8).fill('#f8fafc').stroke('#e2e8f0')
+        doc.fillColor(card.color).fontSize(18).text(String(card.value), x + 14, 239, { width: 130 })
+        doc.fillColor('#64748b').fontSize(9).text(card.label.toUpperCase(), x + 14, 264)
+    })
+
+    doc.fillColor('#0f172a').fontSize(15).text('Tablas incluidas', 42, 325)
+
+    let y = 352
+    resumenTablas.forEach((item, index) => {
+        if (y > 710) {
+            doc.addPage()
+            y = 42
+        }
+
+        doc.roundedRect(42, y, 510, 30, 5).fill(index % 2 === 0 ? '#f8fafc' : '#ffffff').stroke('#e2e8f0')
+        doc.fillColor('#0f172a').fontSize(10).text(item.tabla, 56, y + 9)
+        doc.fillColor('#047857').fontSize(10).text(`${item.total} registros`, 430, y + 9, { width: 100, align: 'right' })
+        y += 34
+    })
+
+    if (y > 640) {
+        doc.addPage()
+        y = 42
+    }
+
+    doc.fillColor('#0f172a').fontSize(15).text('Vista previa SQL', 42, y + 18)
+    doc.roundedRect(42, y + 48, 510, 140, 6).fill('#020617')
+    doc.fillColor('#d1fae5').fontSize(8).text(
+        contenidoSql.split('\n').slice(0, 14).join('\n'),
+        56,
+        y + 62,
+        { width: 482, height: 112 }
+    )
+
+    doc.fillColor('#64748b').fontSize(8).text(
+        'Este PDF documenta el respaldo generado. Para restaurar datos, usa el archivo SQL correspondiente.',
+        42,
+        doc.page.height - 54,
+        { width: 510, align: 'center' }
+    )
+
+    doc.end()
+})
+
 exports.generarRespaldo = async (req, res) => {
     try {
         if (Number(req.usuario.id_rol) !== 1) {
@@ -153,6 +253,33 @@ exports.generarRespaldo = async (req, res) => {
 
         res.status(500).json({
             mensaje: 'Error al generar respaldo'
+        })
+    }
+}
+
+exports.generarRespaldoPdf = async (req, res) => {
+    try {
+        if (Number(req.usuario.id_rol) !== 1) {
+            return res.status(403).json({ mensaje: 'No autorizado' })
+        }
+
+        const nombreArchivo = `reporte_respaldo_${process.env.DB_NAME || 'database'}_${formatearFechaArchivo()}.pdf`
+        const resumenTablas = await obtenerResumenTablas()
+        const contenidoSql = await generarContenidoRespaldo(obtenerDialect())
+        const pdfBuffer = await generarPdfRespaldo({
+            nombreArchivo,
+            resumenTablas,
+            contenidoSql
+        })
+
+        res.setHeader('Content-Type', 'application/pdf')
+        res.setHeader('Content-Disposition', `attachment; filename="${nombreArchivo}"`)
+        res.send(pdfBuffer)
+    } catch (error) {
+        console.error('Error al generar PDF de respaldo:', error)
+
+        res.status(500).json({
+            mensaje: 'Error al generar PDF de respaldo'
         })
     }
 }

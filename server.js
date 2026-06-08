@@ -1,8 +1,10 @@
 const app = require('./src/app');
 const sequelize = require('./src/config/database');
 const { DataTypes } = require('sequelize');
+const bcrypt = require('bcrypt');
 require('./src/models');
 require('dotenv').config();
+const { Empleado } = require('./src/models');
 
 const PORT = process.env.PORT || 3000;
 
@@ -46,6 +48,38 @@ async function asegurarColumnasEmpleados() {
         type: DataTypes.TEXT('long'),
         allowNull: true
     });
+
+    if (!tablaEmpleados.password_hash) {
+        await queryInterface.addColumn('empleados', 'password_hash', {
+            type: DataTypes.STRING,
+            allowNull: true
+        });
+    }
+}
+
+async function asegurarContrasenasEncriptadas() {
+    const empleados = await Empleado.findAll();
+
+    for (const empleado of empleados) {
+        const passwordActual = empleado.password_hash || empleado.contraseña || '';
+
+        if (!passwordActual || passwordActual.startsWith('$2')) {
+            if (passwordActual && (!empleado.password_hash || empleado.contraseña !== passwordActual)) {
+                await empleado.update({
+                    contraseña: passwordActual,
+                    password_hash: passwordActual
+                });
+            }
+
+            continue;
+        }
+
+        const passwordHash = await bcrypt.hash(passwordActual, 10);
+        await empleado.update({
+            contraseña: passwordHash,
+            password_hash: passwordHash
+        });
+    }
 }
 
 async function startServer() {
@@ -54,6 +88,7 @@ async function startServer() {
         await sequelize.authenticate();
         await asegurarColumnasVentas();
         await asegurarColumnasEmpleados();
+        await asegurarContrasenasEncriptadas();
 
         if (process.env.DB_SYNC === 'true') {
             await sequelize.sync({ alter: true });

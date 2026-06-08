@@ -29,6 +29,7 @@ async function seed() {
             foto: 'admin.jpg',
             usuario: 'admin',
             contraseña: hash1,
+            password_hash: hash1,
             id_rol: adminRol.id_rol
         });
 
@@ -40,6 +41,7 @@ async function seed() {
             foto: 'empleado.jpg',
             usuario: 'empleado',
             contraseña: hash2,
+            password_hash: hash2,
             id_rol: empRol.id_rol
         });
 
