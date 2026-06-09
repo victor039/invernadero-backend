@@ -4,7 +4,7 @@ import Swal from 'sweetalert2'
 
 import DashboardLayout from '../layouts/DashboardLayout'
 import api from '../services/api'
-import { limpiarTexto, normalizarNombre, normalizarTelefono, validarCorreo, validarLongitud, validarLongitudMinMax, validarNombrePersona, validarTelefono } from '../utils/validaciones'
+import { capitalizarNombre, limpiarTexto, normalizarNombre, normalizarTelefono, validarCorreo, validarLongitud, validarLongitudMinMax, validarNombrePersona, validarTelefono } from '../utils/validaciones'
 
 const clienteInicial = {
     nombre: '',
@@ -59,8 +59,8 @@ function Clientes() {
     const handleChange = (e) => {
         const { name, value } = e.target
         let valorLimpio = value
-        if (name === 'nombre') valorLimpio = normalizarNombre(value, 30)
-        if (name === 'apellido') valorLimpio = normalizarNombre(value, 40)
+        if (name === 'nombre') valorLimpio = capitalizarNombre(normalizarNombre(value, 30))
+        if (name === 'apellido') valorLimpio = capitalizarNombre(normalizarNombre(value, 40))
         if (name === 'telefono') valorLimpio = normalizarTelefono(value)
         if (name === 'correo') valorLimpio = value.trim().slice(0, 80)
         if (name === 'direccion') valorLimpio = value.slice(0, 180)

@@ -4,7 +4,7 @@ import { FaBell, FaBoxOpen, FaBriefcase, FaCashRegister, FaChartLine, FaCheckDou
 import Swal from 'sweetalert2'
 import { guardarPerfilLocal } from '../utils/perfilLocal'
 import api from '../services/api'
-import { limpiarTexto, normalizarNombre, normalizarTelefono, validarCorreo, validarLongitudMinMax, validarNombrePersona, validarTelefono } from '../utils/validaciones'
+import { capitalizarNombre, limpiarTexto, normalizarNombre, normalizarTelefono, validarCorreo, validarLongitudMinMax, validarNombrePersona, validarTelefono } from '../utils/validaciones'
 
 const formatoMonedaNotificacion = new Intl.NumberFormat('es-MX', {
     style: 'currency',
@@ -612,14 +612,14 @@ function DashboardLayout({ children }) {
                             <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
                                 <input
                                     value={perfilForm.nombre}
-                                    onChange={(event) => setPerfilForm({ ...perfilForm, nombre: normalizarNombre(event.target.value, 30) })}
+                                    onChange={(event) => setPerfilForm({ ...perfilForm, nombre: capitalizarNombre(normalizarNombre(event.target.value, 30)) })}
                                     placeholder="Nombre"
                                     maxLength={30}
                                     className={`h-11 w-full rounded-md border border-slate-300 px-3 outline-none ${tema.focoInput}`}
                                 />
                                 <input
                                     value={perfilForm.apellido}
-                                    onChange={(event) => setPerfilForm({ ...perfilForm, apellido: normalizarNombre(event.target.value, 40) })}
+                                    onChange={(event) => setPerfilForm({ ...perfilForm, apellido: capitalizarNombre(normalizarNombre(event.target.value, 40)) })}
                                     placeholder="Apellido"
                                     maxLength={40}
                                     className={`h-11 w-full rounded-md border border-slate-300 px-3 outline-none ${tema.focoInput}`}

@@ -4,7 +4,7 @@ import { FaBriefcase, FaCrown, FaEdit, FaHeadset, FaIdBadge, FaLeaf, FaPlus, FaR
 
 import DashboardLayout from '../layouts/DashboardLayout'
 import api from '../services/api'
-import { limpiarTexto, normalizarNombre, normalizarTelefono, validarCorreo, validarLongitudMinMax, validarNombrePersona, validarPassword, validarTelefono, validarUsuario } from '../utils/validaciones'
+import { capitalizarNombre, limpiarTexto, normalizarNombre, normalizarTelefono, validarCorreo, validarLongitudMinMax, validarNombrePersona, validarPassword, validarTelefono, validarUsuario } from '../utils/validaciones'
 
 const empleadoInicial = {
     nombre: '',
@@ -69,6 +69,7 @@ function Empleados() {
     const [busqueda, setBusqueda] = useState('')
     const [form, setForm] = useState(empleadoInicial)
     const [errores, setErrores] = useState({})
+    const [ayudas, setAyudas] = useState({})
     const [editandoId, setEditandoId] = useState(null)
     const [guardando, setGuardando] = useState(false)
     const [fotoPreview, setFotoPreview] = useState('')
@@ -113,6 +114,7 @@ function Empleados() {
     const limpiar = () => {
         setForm(empleadoInicial)
         setErrores({})
+        setAyudas({})
         setEditandoId(null)
         setFotoPreview('')
     }
@@ -120,8 +122,19 @@ function Empleados() {
     const handleChange = (e) => {
         const { name, value } = e.target
         let valorLimpio = value
-        if (name === 'nombre') valorLimpio = normalizarNombre(value, 30)
-        if (name === 'apellido') valorLimpio = normalizarNombre(value, 40)
+        const nuevasAyudas = { ...ayudas, [name]: '' }
+        if (name === 'nombre') {
+            const normalizado = normalizarNombre(value, 30)
+            const capitalizado = capitalizarNombre(normalizado)
+            if (normalizado && normalizado !== capitalizado) nuevasAyudas.nombre = 'Se ajustó la inicial a mayúscula.'
+            valorLimpio = capitalizado
+        }
+        if (name === 'apellido') {
+            const normalizado = normalizarNombre(value, 40)
+            const capitalizado = capitalizarNombre(normalizado)
+            if (normalizado && normalizado !== capitalizado) nuevasAyudas.apellido = 'Se ajustó la inicial a mayúscula.'
+            valorLimpio = capitalizado
+        }
         if (name === 'telefono') valorLimpio = normalizarTelefono(value)
         if (name === 'correo') valorLimpio = value.trim().slice(0, 80)
         if (name === 'usuario') valorLimpio = value.trim().slice(0, 30)
@@ -129,6 +142,7 @@ function Empleados() {
 
         setForm({ ...form, [name]: valorLimpio })
         setErrores({ ...errores, [name]: '' })
+        setAyudas(nuevasAyudas)
     }
 
     const guardar = async (e) => {
@@ -283,11 +297,11 @@ function Empleados() {
                     </div>
                     <div>
                         <input name="nombre" value={form.nombre} onChange={handleChange} placeholder="Nombre" maxLength={30} className="h-11 w-full rounded-md border border-slate-300 px-3 outline-none focus:border-emerald-600" />
-                        <p className="mt-1 min-h-5 text-xs text-red-600">{errores.nombre}</p>
+                        <p className={`mt-1 min-h-5 text-xs ${errores.nombre ? 'text-red-600' : 'text-emerald-700'}`}>{errores.nombre || ayudas.nombre}</p>
                     </div>
                     <div>
                         <input name="apellido" value={form.apellido} onChange={handleChange} placeholder="Apellido" maxLength={40} className="h-11 w-full rounded-md border border-slate-300 px-3 outline-none focus:border-emerald-600" />
-                        <p className="mt-1 min-h-5 text-xs text-red-600">{errores.apellido}</p>
+                        <p className={`mt-1 min-h-5 text-xs ${errores.apellido ? 'text-red-600' : 'text-emerald-700'}`}>{errores.apellido || ayudas.apellido}</p>
                     </div>
                     <div>
                         <input name="usuario" value={form.usuario} onChange={handleChange} placeholder="Usuario" maxLength={30} autoComplete="off" data-lpignore="true" data-1p-ignore="true" className="h-11 w-full rounded-md border border-slate-300 px-3 outline-none focus:border-emerald-600" />

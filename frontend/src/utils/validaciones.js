@@ -63,3 +63,6 @@ export const normalizarNombre = (valor, max = 30) => String(valor || '')
     .replace(/^\s+/, '')
     .replace(/\s{2,}/g, ' ')
     .slice(0, max)
+
+export const capitalizarNombre = (valor) => String(valor || '')
+    .replace(/\S+/g, (palabra) => palabra.charAt(0).toLocaleUpperCase('es-MX') + palabra.slice(1).toLocaleLowerCase('es-MX'))
