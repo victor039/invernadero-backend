@@ -4,7 +4,7 @@ import Swal from 'sweetalert2'
 
 import DashboardLayout from '../layouts/DashboardLayout'
 import api from '../services/api'
-import { limpiarTexto, validarEnteroNoNegativo, validarLongitud, validarNumeroPositivo } from '../utils/validaciones'
+import { limpiarTexto, validarEnteroNoNegativo, validarLongitud, validarLongitudMinMax, validarNumeroPositivo, validarSinSoloNumeros } from '../utils/validaciones'
 
 const formInicial = {
     nombre_comun: '',
@@ -60,7 +60,31 @@ function Plantas() {
 
     const handleChange = (e) => {
         const { name, value, files } = e.target
-        setForm({ ...form, [name]: name === 'imagen' ? files[0] : value })
+        if (name === 'imagen') {
+            const file = files?.[0] || null
+            if (file && !file.type.startsWith('image/')) {
+                Swal.fire('Archivo no válido', 'Selecciona una imagen JPG, PNG o WebP.', 'warning')
+                e.target.value = ''
+                return
+            }
+            if (file && file.size > 2 * 1024 * 1024) {
+                Swal.fire('Imagen muy grande', 'Usa una imagen menor a 2 MB.', 'warning')
+                e.target.value = ''
+                return
+            }
+            setForm({ ...form, imagen: file })
+            setErrores({ ...errores, imagen: '' })
+            return
+        }
+
+        let valorLimpio = value
+        if (name === 'nombre_comun') valorLimpio = value.replace(/\d/g, '').replace(/\s{2,}/g, ' ').slice(0, 40)
+        if (name === 'nombre_cientifico') valorLimpio = value.replace(/[0-9]/g, '').replace(/\s{2,}/g, ' ').slice(0, 60)
+        if (name === 'descripcion') valorLimpio = value.slice(0, 300)
+        if (name === 'precio') valorLimpio = value.slice(0, 10)
+        if (name === 'stock') valorLimpio = value.replace(/\D/g, '').slice(0, 5)
+
+        setForm({ ...form, [name]: valorLimpio })
         setErrores({ ...errores, [name]: '' })
     }
 
@@ -78,13 +102,14 @@ function Plantas() {
         const nuevosErrores = {}
 
         if (!limpiarTexto(form.nombre_comun)) nuevosErrores.nombre_comun = 'El nombre común es obligatorio'
-        if (!validarLongitud(form.nombre_comun, 100)) nuevosErrores.nombre_comun = 'Máximo 100 caracteres'
-        if (!validarLongitud(form.nombre_cientifico, 120)) nuevosErrores.nombre_cientifico = 'Máximo 120 caracteres'
-        if (!validarNumeroPositivo(form.precio)) nuevosErrores.precio = 'Precio mayor a 0'
-        if (!validarEnteroNoNegativo(Number(form.stock))) nuevosErrores.stock = 'Stock entero desde 0'
+        if (limpiarTexto(form.nombre_comun) && !validarSinSoloNumeros(form.nombre_comun)) nuevosErrores.nombre_comun = 'No puede ser solo números'
+        if (limpiarTexto(form.nombre_comun) && !validarLongitudMinMax(form.nombre_comun, 2, 40)) nuevosErrores.nombre_comun = 'Usa de 2 a 40 caracteres'
+        if (!validarLongitud(form.nombre_cientifico, 60)) nuevosErrores.nombre_cientifico = 'Máximo 60 caracteres'
+        if (!validarNumeroPositivo(form.precio, 99999)) nuevosErrores.precio = 'Precio entre $1 y $99,999'
+        if (!validarEnteroNoNegativo(Number(form.stock), 99999)) nuevosErrores.stock = 'Stock entero de 0 a 99,999'
         if (!form.id_categoria) nuevosErrores.id_categoria = 'Selecciona categoría'
         if (!form.id_proveedor) nuevosErrores.id_proveedor = 'Selecciona proveedor'
-        if (!validarLongitud(form.descripcion, 350)) nuevosErrores.descripcion = 'Máximo 350 caracteres'
+        if (!validarLongitud(form.descripcion, 300)) nuevosErrores.descripcion = 'Máximo 300 caracteres'
 
         setErrores(nuevosErrores)
 
@@ -299,21 +324,21 @@ function Plantas() {
                         <div className="lg:col-span-2 space-y-4">
                             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                 <CampoPlanta label="Nombre común" icono={FaLeaf} error={errores.nombre_comun}>
-                                    <input name="nombre_comun" value={form.nombre_comun} onChange={handleChange} placeholder="Ej. Monstera" className="h-11 w-full bg-transparent outline-none" />
+                                    <input name="nombre_comun" value={form.nombre_comun} onChange={handleChange} placeholder="Ej. Monstera" maxLength={40} className="h-11 w-full bg-transparent outline-none" />
                                 </CampoPlanta>
 
                                 <CampoPlanta label="Nombre científico" icono={FaFlask} error={errores.nombre_cientifico}>
-                                    <input name="nombre_cientifico" value={form.nombre_cientifico} onChange={handleChange} placeholder="Ej. Monstera deliciosa" className="h-11 w-full bg-transparent outline-none" />
+                                    <input name="nombre_cientifico" value={form.nombre_cientifico} onChange={handleChange} placeholder="Ej. Monstera deliciosa" maxLength={60} className="h-11 w-full bg-transparent outline-none" />
                                 </CampoPlanta>
                             </div>
 
                             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                 <CampoPlanta label="Precio" icono={FaDollarSign} error={errores.precio}>
-                                    <input name="precio" type="number" min="0.01" step="0.01" value={form.precio} onChange={handleChange} placeholder="0.00" className="h-11 w-full bg-transparent outline-none" />
+                                    <input name="precio" type="number" min="1" max="99999" step="0.01" value={form.precio} onChange={handleChange} placeholder="0.00" className="h-11 w-full bg-transparent outline-none" />
                                 </CampoPlanta>
 
                                 <CampoPlanta label="Stock" icono={FaWarehouse} error={errores.stock}>
-                                    <input name="stock" type="number" min="0" step="1" value={form.stock} onChange={handleChange} placeholder="0" className="h-11 w-full bg-transparent outline-none" />
+                                    <input name="stock" type="number" min="0" max="99999" step="1" value={form.stock} onChange={handleChange} placeholder="0" className="h-11 w-full bg-transparent outline-none" />
                                 </CampoPlanta>
                             </div>
 
@@ -339,10 +364,10 @@ function Plantas() {
                                         <FaSeedling className="text-emerald-700" />
                                         Descripción
                                     </div>
-                                    <textarea name="descripcion" value={form.descripcion} onChange={handleChange} placeholder="Detalles de cuidado, tamaño, color o notas internas" className="min-h-28 w-full resize-none bg-transparent leading-6 outline-none" />
+                                    <textarea name="descripcion" value={form.descripcion} onChange={handleChange} placeholder="Detalles de cuidado, tamaño, color o notas internas" maxLength={300} className="min-h-28 w-full resize-none bg-transparent leading-6 outline-none" />
                                     <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3 text-xs text-slate-400">
                                         <span>Notas internas del inventario</span>
-                                        <span>{form.descripcion.length} caracteres</span>
+                                        <span>{form.descripcion.length}/300 caracteres</span>
                                     </div>
                                     <p className="mt-2 min-h-5 text-xs text-red-600">{errores.descripcion}</p>
                                 </div>
@@ -396,7 +421,7 @@ function Plantas() {
                                     </div>
                                     <div className="text-center">
                                         <p className="text-sm font-bold text-slate-900">Sube imagen</p>
-                                        <p className="text-xs text-slate-500">Haz click aquí</p>
+                                        <p className="text-xs text-slate-500">JPG, PNG o WebP menor a 2 MB</p>
                                     </div>
                                     <input type="file" name="imagen" onChange={handleChange} className="hidden" accept="image/*" />
                                 </label>

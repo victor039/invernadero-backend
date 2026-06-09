@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { FaBell, FaBoxOpen, FaCamera, FaCashRegister, FaChartLine, FaCheckDouble, FaChevronRight, FaDatabase, FaHandHoldingUsd, FaHome, FaLeaf, FaPowerOff, FaSave, FaSeedling, FaShieldAlt, FaShippingFast, FaTimes, FaUserFriends, FaUserTie, FaUsers } from 'react-icons/fa'
 import Swal from 'sweetalert2'
 import { guardarPerfilLocal } from '../utils/perfilLocal'
 import api from '../services/api'
+import { limpiarTexto, normalizarNombre, normalizarTelefono, validarCorreo, validarLongitudMinMax, validarNombrePersona, validarTelefono } from '../utils/validaciones'
 
 const formatoMonedaNotificacion = new Intl.NumberFormat('es-MX', {
     style: 'currency',
@@ -35,6 +36,8 @@ const obtenerFotoPerfilSrc = (foto) => {
     const ruta = foto.replace(/^\/?uploads\//, '').replace(/^\/+/, '')
     return `${API_ORIGIN}/uploads/${ruta}`
 }
+
+const SIDEBAR_SCROLL_KEY = 'dashboard_sidebar_scroll'
 
 const comprimirImagenDesdeSrc = (src) => new Promise((resolve, reject) => {
     const image = new Image()
@@ -110,6 +113,8 @@ function DashboardLayout({ children }) {
     const [guardandoPerfil, setGuardandoPerfil] = useState(false)
     const [fotoPerfilArchivo, setFotoPerfilArchivo] = useState(null)
     const [ultimaVentaVista, setUltimaVentaVista] = useState(() => Number(localStorage.getItem(`ventas_vistas_admin_${usuario.id_empleado}`) || 0))
+    const sidebarNavRef = useRef(null)
+    const sidebarScrollInicial = useRef(Number(sessionStorage.getItem(SIDEBAR_SCROLL_KEY) || 0))
     const notificacionesRef = useRef(null)
     const [perfilForm, setPerfilForm] = useState({
         nombre: usuario.nombre || usuario.usuario || '',
@@ -189,10 +194,30 @@ function DashboardLayout({ children }) {
         try {
             const token = localStorage.getItem('token')
             const formData = new FormData()
-            const nombre = perfilForm.nombre.trim() || usuario.nombre || usuario.usuario || 'Administrador'
-            const apellido = perfilForm.apellido.trim()
-            const correo = perfilForm.correo.trim()
-            const telefono = perfilForm.telefono.trim()
+            const nombre = limpiarTexto(perfilForm.nombre) || usuario.nombre || usuario.usuario || 'Administrador'
+            const apellido = limpiarTexto(perfilForm.apellido)
+            const correo = limpiarTexto(perfilForm.correo)
+            const telefono = normalizarTelefono(perfilForm.telefono)
+
+            if (!validarLongitudMinMax(nombre, 2, 30) || !validarNombrePersona(nombre)) {
+                Swal.fire('Nombre inválido', 'Usa solo letras y de 2 a 30 caracteres.', 'warning')
+                return
+            }
+
+            if (apellido && (!validarLongitudMinMax(apellido, 2, 40) || !validarNombrePersona(apellido))) {
+                Swal.fire('Apellido inválido', 'Usa solo letras y de 2 a 40 caracteres.', 'warning')
+                return
+            }
+
+            if (!validarCorreo(correo)) {
+                Swal.fire('Correo inválido', 'Escribe un correo con formato correcto.', 'warning')
+                return
+            }
+
+            if (!validarTelefono(telefono)) {
+                Swal.fire('Teléfono inválido', 'El teléfono debe tener 10 dígitos.', 'warning')
+                return
+            }
 
             formData.append('nombre', nombre)
             formData.append('apellido', apellido)
@@ -320,6 +345,38 @@ function DashboardLayout({ children }) {
         }
     }, [notificacionesAbiertas])
 
+    const asignarSidebarNav = (node) => {
+        sidebarNavRef.current = node
+
+        if (node) {
+            node.scrollTop = sidebarScrollInicial.current
+        }
+    }
+
+    useLayoutEffect(() => {
+        const nav = sidebarNavRef.current
+        if (!nav) return
+
+        nav.scrollTop = Number(sessionStorage.getItem(SIDEBAR_SCROLL_KEY) || sidebarScrollInicial.current)
+    }, [location.pathname])
+
+    useEffect(() => {
+        const nav = sidebarNavRef.current
+        if (!nav) return undefined
+        
+        const guardarScroll = () => {
+            sidebarScrollInicial.current = nav.scrollTop
+            sessionStorage.setItem(SIDEBAR_SCROLL_KEY, String(nav.scrollTop))
+        }
+
+        nav.addEventListener('scroll', guardarScroll, { passive: true })
+
+        return () => {
+            guardarScroll()
+            nav.removeEventListener('scroll', guardarScroll)
+        }
+    }, [])
+
     const links = [
         { to: '/bienvenida', label: 'Inicio', icon: FaHome },
         { to: '/dashboard', label: 'Dashboard', icon: FaChartLine },
@@ -390,7 +447,7 @@ function DashboardLayout({ children }) {
                     </div>
                 </div>
 
-                <nav className="sidebar-scroll mt-8 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain pr-1 pb-4">
+                <nav ref={asignarSidebarNav} className="sidebar-scroll mt-8 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain pr-1 pb-4">
                     {links.map(({ to, label, icon: Icon }) => (
                         <NavLink
                             key={to}
@@ -638,27 +695,32 @@ function DashboardLayout({ children }) {
                             <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
                                 <input
                                     value={perfilForm.nombre}
-                                    onChange={(event) => setPerfilForm({ ...perfilForm, nombre: event.target.value })}
+                                    onChange={(event) => setPerfilForm({ ...perfilForm, nombre: normalizarNombre(event.target.value, 30) })}
                                     placeholder="Nombre"
+                                    maxLength={30}
                                     className={`h-11 w-full rounded-md border border-slate-300 px-3 outline-none ${tema.focoInput}`}
                                 />
                                 <input
                                     value={perfilForm.apellido}
-                                    onChange={(event) => setPerfilForm({ ...perfilForm, apellido: event.target.value })}
+                                    onChange={(event) => setPerfilForm({ ...perfilForm, apellido: normalizarNombre(event.target.value, 40) })}
                                     placeholder="Apellido"
+                                    maxLength={40}
                                     className={`h-11 w-full rounded-md border border-slate-300 px-3 outline-none ${tema.focoInput}`}
                                 />
                                 <input
                                     type="email"
                                     value={perfilForm.correo}
-                                    onChange={(event) => setPerfilForm({ ...perfilForm, correo: event.target.value })}
+                                    onChange={(event) => setPerfilForm({ ...perfilForm, correo: event.target.value.trim().slice(0, 80) })}
                                     placeholder="Correo"
+                                    maxLength={80}
                                     className={`h-11 w-full rounded-md border border-slate-300 px-3 outline-none ${tema.focoInput}`}
                                 />
                                 <input
                                     value={perfilForm.telefono}
-                                    onChange={(event) => setPerfilForm({ ...perfilForm, telefono: event.target.value })}
+                                    onChange={(event) => setPerfilForm({ ...perfilForm, telefono: normalizarTelefono(event.target.value) })}
                                     placeholder="Teléfono"
+                                    inputMode="numeric"
+                                    maxLength={10}
                                     className={`h-11 w-full rounded-md border border-slate-300 px-3 outline-none ${tema.focoInput}`}
                                 />
                             </div>

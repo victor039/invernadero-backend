@@ -1,16 +1,42 @@
 const { Op } = require('sequelize')
 
 const Cliente = require('../models/Cliente')
+const {
+    limpiarTexto,
+    normalizarTelefono,
+    validarCorreo,
+    validarLongitud,
+    validarLongitudMinMax,
+    validarNombrePersona,
+    validarTelefono,
+    validarPayload
+} = require('../utils/validaciones')
+
+const normalizarCliente = (body) => ({
+    nombre: limpiarTexto(body.nombre),
+    apellido: limpiarTexto(body.apellido),
+    correo: limpiarTexto(body.correo).toLowerCase(),
+    telefono: normalizarTelefono(body.telefono),
+    direccion: limpiarTexto(body.direccion)
+})
+
+const validarCliente = (cliente) => {
+    validarPayload([
+        { condicion: !cliente.nombre, mensaje: 'El nombre del cliente es obligatorio' },
+        { condicion: cliente.nombre && !validarLongitudMinMax(cliente.nombre, 2, 30), mensaje: 'El nombre debe tener de 2 a 30 caracteres' },
+        { condicion: cliente.nombre && !validarNombrePersona(cliente.nombre), mensaje: 'El nombre solo puede contener letras' },
+        { condicion: cliente.apellido && !validarLongitudMinMax(cliente.apellido, 2, 40), mensaje: 'El apellido debe tener de 2 a 40 caracteres' },
+        { condicion: cliente.apellido && !validarNombrePersona(cliente.apellido), mensaje: 'El apellido solo puede contener letras' },
+        { condicion: cliente.correo && !validarCorreo(cliente.correo), mensaje: 'El correo no tiene un formato válido' },
+        { condicion: cliente.telefono && !validarTelefono(cliente.telefono), mensaje: 'El teléfono debe tener 10 dígitos' },
+        { condicion: !validarLongitud(cliente.direccion, 180), mensaje: 'La dirección puede tener máximo 180 caracteres' }
+    ])
+}
 
 exports.crearCliente = async (req, res) => {
     try {
-        const { nombre, apellido, correo, telefono, direccion } = req.body
-
-        if (!nombre) {
-            return res.status(400).json({
-                mensaje: 'El nombre del cliente es obligatorio'
-            })
-        }
+        const { nombre, apellido, correo, telefono, direccion } = normalizarCliente(req.body)
+        validarCliente({ nombre, apellido, correo, telefono, direccion })
 
         if (correo) {
             const existeCorreo = await Cliente.findOne({ where: { correo } })
@@ -32,8 +58,8 @@ exports.crearCliente = async (req, res) => {
 
         res.status(201).json(cliente)
     } catch (error) {
-        res.status(500).json({
-            mensaje: 'Error al crear cliente',
+        res.status(error.status || 500).json({
+            mensaje: error.status ? error.message : 'Error al crear cliente',
             error: error.message
         })
     }
@@ -63,13 +89,8 @@ exports.actualizarCliente = async (req, res) => {
             })
         }
 
-        const { nombre, apellido, correo, telefono, direccion } = req.body
-
-        if (!nombre) {
-            return res.status(400).json({
-                mensaje: 'El nombre del cliente es obligatorio'
-            })
-        }
+        const { nombre, apellido, correo, telefono, direccion } = normalizarCliente(req.body)
+        validarCliente({ nombre, apellido, correo, telefono, direccion })
 
         if (correo) {
             const existeCorreo = await Cliente.findOne({
@@ -101,8 +122,8 @@ exports.actualizarCliente = async (req, res) => {
             cliente
         })
     } catch (error) {
-        res.status(500).json({
-            mensaje: 'Error al actualizar cliente',
+        res.status(error.status || 500).json({
+            mensaje: error.status ? error.message : 'Error al actualizar cliente',
             error: error.message
         })
     }

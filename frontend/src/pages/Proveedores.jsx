@@ -4,7 +4,7 @@ import Swal from 'sweetalert2'
 
 import DashboardLayout from '../layouts/DashboardLayout'
 import api from '../services/api'
-import { limpiarTexto, validarCorreo, validarLongitud, validarNombrePersona, validarSinSoloNumeros, validarTelefono } from '../utils/validaciones'
+import { limpiarTexto, normalizarNombre, normalizarTelefono, validarCorreo, validarLongitud, validarLongitudMinMax, validarNombrePersona, validarSinSoloNumeros, validarTelefono } from '../utils/validaciones'
 
 const proveedorInicial = {
     nombre_empresa: '',
@@ -45,11 +45,11 @@ function Proveedores() {
 
         if (!limpiarTexto(form.nombre_empresa)) nuevosErrores.nombre_empresa = 'El nombre de la empresa es obligatorio'
         if (limpiarTexto(form.nombre_empresa) && !validarSinSoloNumeros(form.nombre_empresa)) nuevosErrores.nombre_empresa = 'No puede ser solo números'
-        if (!validarLongitud(form.nombre_empresa, 100)) nuevosErrores.nombre_empresa = 'Máximo 100 caracteres'
+        if (!validarLongitudMinMax(form.nombre_empresa, 2, 60)) nuevosErrores.nombre_empresa = 'Usa de 2 a 60 caracteres'
+        if (limpiarTexto(form.contacto) && !validarLongitudMinMax(form.contacto, 2, 40)) nuevosErrores.contacto = 'Usa de 2 a 40 caracteres'
         if (limpiarTexto(form.contacto) && !validarNombrePersona(form.contacto)) nuevosErrores.contacto = 'Solo letras, espacios, apóstrofes o guiones'
-        if (!validarLongitud(form.contacto, 90)) nuevosErrores.contacto = 'Máximo 90 caracteres'
         if (!validarCorreo(form.correo)) nuevosErrores.correo = 'Correo no válido'
-        if (!validarTelefono(form.telefono)) nuevosErrores.telefono = 'Teléfono no válido'
+        if (!validarTelefono(form.telefono)) nuevosErrores.telefono = 'Teléfono de 10 dígitos'
         if (!validarLongitud(form.direccion, 180)) nuevosErrores.direccion = 'Máximo 180 caracteres'
 
         setErrores(nuevosErrores)
@@ -58,9 +58,12 @@ function Proveedores() {
 
     const handleChange = (e) => {
         const { name, value } = e.target
-        const valorLimpio = name === 'contacto'
-            ? value.replace(/[0-9]/g, '')
-            : value
+        let valorLimpio = value
+        if (name === 'contacto') valorLimpio = normalizarNombre(value, 40)
+        if (name === 'nombre_empresa') valorLimpio = value.replace(/\s{2,}/g, ' ').slice(0, 60)
+        if (name === 'telefono') valorLimpio = normalizarTelefono(value)
+        if (name === 'correo') valorLimpio = value.trim().slice(0, 80)
+        if (name === 'direccion') valorLimpio = value.slice(0, 180)
 
         setForm({ ...form, [name]: valorLimpio })
         setErrores({ ...errores, [name]: '' })
@@ -191,16 +194,16 @@ function Proveedores() {
 
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
                         <CampoProveedor icono={FaBuilding} error={errores.nombre_empresa}>
-                            <input name="nombre_empresa" value={form.nombre_empresa} onChange={handleChange} placeholder="Empresa" className="h-11 w-full bg-transparent outline-none" />
+                            <input name="nombre_empresa" value={form.nombre_empresa} onChange={handleChange} placeholder="Empresa" maxLength={60} className="h-11 w-full bg-transparent outline-none" />
                         </CampoProveedor>
                         <CampoProveedor icono={FaUserCog} error={errores.contacto}>
-                            <input name="contacto" value={form.contacto} onChange={handleChange} placeholder="Contacto" className="h-11 w-full bg-transparent outline-none" />
+                            <input name="contacto" value={form.contacto} onChange={handleChange} placeholder="Contacto" maxLength={40} className="h-11 w-full bg-transparent outline-none" />
                         </CampoProveedor>
                         <CampoProveedor icono={FaEnvelope} error={errores.correo}>
-                            <input name="correo" value={form.correo} onChange={handleChange} placeholder="Correo" className="h-11 w-full bg-transparent outline-none" />
+                            <input name="correo" type="email" value={form.correo} onChange={handleChange} placeholder="Correo" maxLength={80} className="h-11 w-full bg-transparent outline-none" />
                         </CampoProveedor>
                         <CampoProveedor icono={FaPhoneAlt} error={errores.telefono}>
-                            <input name="telefono" value={form.telefono} onChange={handleChange} placeholder="Teléfono" className="h-11 w-full bg-transparent outline-none" />
+                            <input name="telefono" inputMode="numeric" value={form.telefono} onChange={handleChange} placeholder="Teléfono" maxLength={10} className="h-11 w-full bg-transparent outline-none" />
                         </CampoProveedor>
 
                         <div className={`rounded-lg border bg-white p-3 focus-within:border-indigo-700 md:col-span-2 xl:col-span-3 ${errores.direccion ? 'border-red-300' : 'border-slate-300'}`}>
@@ -208,7 +211,7 @@ function Proveedores() {
                                 <FaMapMarkerAlt className="text-indigo-700" />
                                 Dirección
                             </div>
-                            <textarea name="direccion" value={form.direccion} onChange={handleChange} placeholder="Dirección del proveedor" className="min-h-11 w-full resize-none bg-transparent outline-none" />
+                            <textarea name="direccion" value={form.direccion} onChange={handleChange} placeholder="Dirección del proveedor" maxLength={180} className="min-h-11 w-full resize-none bg-transparent outline-none" />
                             <p className="mt-1 min-h-5 text-xs text-red-600">{errores.direccion}</p>
                         </div>
 

@@ -4,6 +4,7 @@ import Swal from 'sweetalert2'
 
 import DashboardLayout from '../layouts/DashboardLayout'
 import api from '../services/api'
+import { limpiarTexto, normalizarNombre, validarCorreo, validarLongitud, validarLongitudMinMax, validarNombrePersona } from '../utils/validaciones'
 
 const formatoMoneda = new Intl.NumberFormat('es-MX', {
     style: 'currency',
@@ -238,8 +239,17 @@ function Ventas() {
             return
         }
 
-        if (tipoCliente === 'paso' && !clientePaso.trim()) {
+        const clientePasoLimpio = limpiarTexto(clientePaso)
+        const correoTicketLimpio = limpiarTexto(correoTicket)
+        const referenciaLimpia = limpiarTexto(referenciaPago)
+
+        if (tipoCliente === 'paso' && !clientePasoLimpio) {
             Swal.fire('Nombre del cliente', 'Escribe un nombre para el cliente de paso.', 'warning')
+            return
+        }
+
+        if (tipoCliente === 'paso' && (!validarLongitudMinMax(clientePasoLimpio, 2, 60) || !validarNombrePersona(clientePasoLimpio))) {
+            Swal.fire('Cliente inválido', 'Usa solo letras y de 2 a 60 caracteres.', 'warning')
             return
         }
 
@@ -248,8 +258,13 @@ function Ventas() {
             return
         }
 
-        if (metodoPago !== 'Efectivo' && !referenciaPago.trim()) {
+        if (metodoPago !== 'Efectivo' && !referenciaLimpia) {
             Swal.fire('Referencia requerida', 'Agrega una referencia para este método de pago.', 'warning')
+            return
+        }
+
+        if (referenciaLimpia && !validarLongitud(referenciaLimpia, 40)) {
+            Swal.fire('Referencia inválida', 'La referencia puede tener máximo 40 caracteres.', 'warning')
             return
         }
 
@@ -258,8 +273,13 @@ function Ventas() {
             return
         }
 
-        if (entregaTicket.correo && !correoTicket.trim()) {
+        if (entregaTicket.correo && !correoTicketLimpio) {
             Swal.fire('Correo requerido', 'Agrega un correo para enviar el ticket. Si el cliente registrado no tiene correo, escríbelo manualmente.', 'warning')
+            return
+        }
+
+        if (correoTicketLimpio && !validarCorreo(correoTicketLimpio)) {
+            Swal.fire('Correo inválido', 'Escribe un correo con formato correcto.', 'warning')
             return
         }
 
@@ -272,14 +292,14 @@ function Ventas() {
                     id_empleado: localStorage.getItem('id_empleado') || 1,
                     productos: carrito,
                     tipo_cliente: tipoCliente,
-                    cliente_paso: clientePaso,
+                    cliente_paso: clientePasoLimpio,
                     metodo_pago: metodoPago,
-                    referencia_pago: referenciaPago,
+                    referencia_pago: referenciaLimpia,
                     entrega_ticket: {
                         ...entregaTicket,
                         descarga: true
                     },
-                    correo_ticket: correoTicket
+                    correo_ticket: correoTicketLimpio
                 },
                 {
                     headers: { Authorization: `Bearer ${token}` }
@@ -449,7 +469,7 @@ function Ventas() {
             confirmButtonColor: '#1d4ed8',
             inputValidator: (value) => {
                 if (!value) return 'Escribe un correo para enviar el ticket'
-                if (!/^\S+@\S+\.\S+$/.test(value)) return 'Correo no válido'
+                if (!validarCorreo(value)) return 'Correo no válido'
                 return null
             }
         })
@@ -460,7 +480,7 @@ function Ventas() {
             setTicketProcesandoId(venta.id_venta)
             const response = await generarTicketHistorial(venta, {
                 entrega_ticket: { correo: true },
-                correo_ticket: result.value
+                correo_ticket: limpiarTexto(result.value)
             })
             const entrega = response.entregas?.[0]
 
@@ -669,8 +689,8 @@ function Ventas() {
                             </select>
                         ) : (
                             <div className="space-y-3">
-                                <input value={clientePaso} onChange={(e) => setClientePaso(e.target.value)} placeholder="Nombre del cliente de paso" className="h-16 w-full rounded-md border border-amber-200 bg-amber-50 px-4 text-lg font-bold text-slate-950 outline-none focus:border-amber-600 focus:bg-white" />
-                                <input value={correoTicket} onChange={(e) => setCorreoTicket(e.target.value)} placeholder="Correo electrónico para Gmail" className="h-11 w-full rounded-md border border-slate-300 px-3 outline-none focus:border-amber-600" />
+                                <input value={clientePaso} onChange={(e) => setClientePaso(normalizarNombre(e.target.value, 60))} placeholder="Nombre del cliente de paso" maxLength={60} className="h-16 w-full rounded-md border border-amber-200 bg-amber-50 px-4 text-lg font-bold text-slate-950 outline-none focus:border-amber-600 focus:bg-white" />
+                                <input value={correoTicket} onChange={(e) => setCorreoTicket(e.target.value.trim().slice(0, 80))} placeholder="Correo electrónico para Gmail" type="email" maxLength={80} className="h-11 w-full rounded-md border border-slate-300 px-3 outline-none focus:border-amber-600" />
                             </div>
                         )}
                     </div>
@@ -707,7 +727,7 @@ function Ventas() {
                         ))}
                     </div>
                     {metodoPago !== 'Efectivo' && (
-                        <input value={referenciaPago} onChange={(e) => setReferenciaPago(e.target.value)} placeholder="Referencia, folio o autorización" className="mt-4 h-11 w-full rounded-md border border-slate-300 px-3 outline-none focus:border-slate-950" />
+                        <input value={referenciaPago} onChange={(e) => setReferenciaPago(e.target.value.slice(0, 40))} placeholder="Referencia, folio o autorización" maxLength={40} className="mt-4 h-11 w-full rounded-md border border-slate-300 px-3 outline-none focus:border-slate-950" />
                     )}
                 </div>
 
@@ -735,7 +755,7 @@ function Ventas() {
 
                     {tipoCliente === 'registrado' && entregaTicket.correo && (
                         <div className="mt-4">
-                            <input value={correoTicket} onChange={(e) => setCorreoTicket(e.target.value)} placeholder="Correo electrónico" className="h-11 w-full rounded-md border border-slate-300 px-3 outline-none focus:border-blue-700" />
+                            <input value={correoTicket} onChange={(e) => setCorreoTicket(e.target.value.trim().slice(0, 80))} placeholder="Correo electrónico" type="email" maxLength={80} className="h-11 w-full rounded-md border border-slate-300 px-3 outline-none focus:border-blue-700" />
                         </div>
                     )}
                 </div>

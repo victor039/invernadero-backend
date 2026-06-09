@@ -4,7 +4,7 @@ import { FaCamera, FaEdit, FaIdBadge, FaPlus, FaShieldAlt, FaTrash, FaUserTie, F
 
 import DashboardLayout from '../layouts/DashboardLayout'
 import api from '../services/api'
-import { limpiarTexto, validarCorreo, validarLongitud, validarNombrePersona, validarTelefono, validarUsuario } from '../utils/validaciones'
+import { limpiarTexto, normalizarNombre, normalizarTelefono, validarCorreo, validarLongitudMinMax, validarNombrePersona, validarPassword, validarTelefono, validarUsuario } from '../utils/validaciones'
 
 const empleadoInicial = {
     nombre: '',
@@ -101,17 +101,16 @@ function Empleados() {
         const nuevosErrores = {}
 
         if (!limpiarTexto(form.nombre)) nuevosErrores.nombre = 'El nombre es obligatorio'
+        if (limpiarTexto(form.nombre) && !validarLongitudMinMax(form.nombre, 2, 30)) nuevosErrores.nombre = 'Usa de 2 a 30 caracteres'
         if (limpiarTexto(form.nombre) && !validarNombrePersona(form.nombre)) nuevosErrores.nombre = 'Solo letras, espacios, apóstrofes o guiones'
-        if (!validarLongitud(form.nombre, 80)) nuevosErrores.nombre = 'Máximo 80 caracteres'
+        if (limpiarTexto(form.apellido) && !validarLongitudMinMax(form.apellido, 2, 40)) nuevosErrores.apellido = 'Usa de 2 a 40 caracteres'
         if (limpiarTexto(form.apellido) && !validarNombrePersona(form.apellido)) nuevosErrores.apellido = 'Solo letras, espacios, apóstrofes o guiones'
-        if (!validarLongitud(form.apellido, 80)) nuevosErrores.apellido = 'Máximo 80 caracteres'
         if (!limpiarTexto(form.usuario)) nuevosErrores.usuario = 'El usuario es obligatorio'
         if (!validarUsuario(form.usuario)) nuevosErrores.usuario = 'Usa 3-30 caracteres, letras/números/punto/guion'
         if (!limpiarTexto(form.correo)) nuevosErrores.correo = 'El correo es obligatorio'
         if (!validarCorreo(form.correo)) nuevosErrores.correo = 'Correo no válido'
-        if (!validarTelefono(form.telefono)) nuevosErrores.telefono = 'Teléfono no válido'
-        if (!editandoId && form.contraseña.length < 4) nuevosErrores.contraseña = 'Mínimo 4 caracteres'
-        if (editandoId && form.contraseña && form.contraseña.length < 4) nuevosErrores.contraseña = 'Mínimo 4 caracteres'
+        if (!validarTelefono(form.telefono)) nuevosErrores.telefono = 'Teléfono de 10 dígitos'
+        if (!validarPassword(form.contraseña, !editandoId)) nuevosErrores.contraseña = 'Mínimo 8 caracteres con letras y números'
 
         setErrores(nuevosErrores)
         return Object.keys(nuevosErrores).length === 0
@@ -127,9 +126,13 @@ function Empleados() {
 
     const handleChange = (e) => {
         const { name, value } = e.target
-        const valorLimpio = ['nombre', 'apellido'].includes(name)
-            ? value.replace(/[0-9]/g, '')
-            : value
+        let valorLimpio = value
+        if (name === 'nombre') valorLimpio = normalizarNombre(value, 30)
+        if (name === 'apellido') valorLimpio = normalizarNombre(value, 40)
+        if (name === 'telefono') valorLimpio = normalizarTelefono(value)
+        if (name === 'correo') valorLimpio = value.trim().slice(0, 80)
+        if (name === 'usuario') valorLimpio = value.trim().slice(0, 30)
+        if (name === 'contraseña') valorLimpio = value.slice(0, 60)
 
         setForm({ ...form, [name]: valorLimpio })
         setErrores({ ...errores, [name]: '' })
@@ -317,23 +320,23 @@ function Empleados() {
                         </label>
                     </div>
                     <div>
-                        <input name="nombre" value={form.nombre} onChange={handleChange} placeholder="Nombre" className="h-11 w-full rounded-md border border-slate-300 px-3 outline-none focus:border-emerald-600" />
+                        <input name="nombre" value={form.nombre} onChange={handleChange} placeholder="Nombre" maxLength={30} className="h-11 w-full rounded-md border border-slate-300 px-3 outline-none focus:border-emerald-600" />
                         <p className="mt-1 min-h-5 text-xs text-red-600">{errores.nombre}</p>
                     </div>
                     <div>
-                        <input name="apellido" value={form.apellido} onChange={handleChange} placeholder="Apellido" className="h-11 w-full rounded-md border border-slate-300 px-3 outline-none focus:border-emerald-600" />
+                        <input name="apellido" value={form.apellido} onChange={handleChange} placeholder="Apellido" maxLength={40} className="h-11 w-full rounded-md border border-slate-300 px-3 outline-none focus:border-emerald-600" />
                         <p className="mt-1 min-h-5 text-xs text-red-600">{errores.apellido}</p>
                     </div>
                     <div>
-                        <input name="usuario" value={form.usuario} onChange={handleChange} placeholder="Usuario" autoComplete="off" data-lpignore="true" data-1p-ignore="true" className="h-11 w-full rounded-md border border-slate-300 px-3 outline-none focus:border-emerald-600" />
+                        <input name="usuario" value={form.usuario} onChange={handleChange} placeholder="Usuario" maxLength={30} autoComplete="off" data-lpignore="true" data-1p-ignore="true" className="h-11 w-full rounded-md border border-slate-300 px-3 outline-none focus:border-emerald-600" />
                         <p className="mt-1 min-h-5 text-xs text-red-600">{errores.usuario}</p>
                     </div>
                     <div>
-                        <input name="correo" value={form.correo} onChange={handleChange} placeholder="Correo" className="h-11 w-full rounded-md border border-slate-300 px-3 outline-none focus:border-emerald-600" />
+                        <input name="correo" type="email" value={form.correo} onChange={handleChange} placeholder="Correo" maxLength={80} className="h-11 w-full rounded-md border border-slate-300 px-3 outline-none focus:border-emerald-600" />
                         <p className="mt-1 min-h-5 text-xs text-red-600">{errores.correo}</p>
                     </div>
                     <div>
-                        <input name="telefono" value={form.telefono} onChange={handleChange} placeholder="Teléfono" className="h-11 w-full rounded-md border border-slate-300 px-3 outline-none focus:border-emerald-600" />
+                        <input name="telefono" inputMode="numeric" value={form.telefono} onChange={handleChange} placeholder="Teléfono" maxLength={10} className="h-11 w-full rounded-md border border-slate-300 px-3 outline-none focus:border-emerald-600" />
                         <p className="mt-1 min-h-5 text-xs text-red-600">{errores.telefono}</p>
                     </div>
                     <div>
@@ -344,7 +347,7 @@ function Empleados() {
                         <p className="mt-1 min-h-5 text-xs text-red-600"></p>
                     </div>
                     <div>
-                        <input name="contraseña" type="text" value={form.contraseña} onChange={handleChange} placeholder={editandoId ? 'Nueva contraseña opcional' : 'Contraseña'} autoComplete="off" data-lpignore="true" data-1p-ignore="true" className="password-mask h-11 w-full rounded-md border border-slate-300 px-3 outline-none focus:border-emerald-600" />
+                        <input name="contraseña" type="text" value={form.contraseña} onChange={handleChange} placeholder={editandoId ? 'Nueva contraseña opcional' : 'Contraseña'} maxLength={60} autoComplete="off" data-lpignore="true" data-1p-ignore="true" className="password-mask h-11 w-full rounded-md border border-slate-300 px-3 outline-none focus:border-emerald-600" />
                         <p className="mt-1 min-h-5 text-xs text-red-600">{errores.contraseña}</p>
                     </div>
                     <div className="flex gap-2">

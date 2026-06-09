@@ -1,22 +1,43 @@
 const { Op } = require('sequelize')
 
 const Proveedor = require('../models/Proveedor')
+const {
+    limpiarTexto,
+    normalizarTelefono,
+    validarCorreo,
+    validarLongitud,
+    validarLongitudMinMax,
+    validarNombrePersona,
+    validarSinSoloNumeros,
+    validarTelefono,
+    validarPayload
+} = require('../utils/validaciones')
+
+const normalizarProveedor = (body) => ({
+    nombre_empresa: limpiarTexto(body.nombre_empresa),
+    contacto: limpiarTexto(body.contacto),
+    correo: limpiarTexto(body.correo).toLowerCase(),
+    telefono: normalizarTelefono(body.telefono),
+    direccion: limpiarTexto(body.direccion)
+})
+
+const validarProveedor = (proveedor) => {
+    validarPayload([
+        { condicion: !proveedor.nombre_empresa, mensaje: 'El nombre de la empresa es obligatorio' },
+        { condicion: proveedor.nombre_empresa && !validarSinSoloNumeros(proveedor.nombre_empresa), mensaje: 'El nombre de la empresa no puede ser solo números' },
+        { condicion: proveedor.nombre_empresa && !validarLongitudMinMax(proveedor.nombre_empresa, 2, 60), mensaje: 'La empresa debe tener de 2 a 60 caracteres' },
+        { condicion: proveedor.contacto && !validarLongitudMinMax(proveedor.contacto, 2, 40), mensaje: 'El contacto debe tener de 2 a 40 caracteres' },
+        { condicion: proveedor.contacto && !validarNombrePersona(proveedor.contacto), mensaje: 'El contacto solo puede contener letras' },
+        { condicion: proveedor.correo && !validarCorreo(proveedor.correo), mensaje: 'El correo no tiene un formato válido' },
+        { condicion: proveedor.telefono && !validarTelefono(proveedor.telefono), mensaje: 'El teléfono debe tener 10 dígitos' },
+        { condicion: !validarLongitud(proveedor.direccion, 180), mensaje: 'La dirección puede tener máximo 180 caracteres' }
+    ])
+}
 
 exports.crearProveedor = async (req, res) => {
     try {
-        const {
-            nombre_empresa,
-            contacto,
-            correo,
-            telefono,
-            direccion
-        } = req.body
-
-        if (!nombre_empresa) {
-            return res.status(400).json({
-                mensaje: 'El nombre de la empresa es obligatorio'
-            })
-        }
+        const { nombre_empresa, contacto, correo, telefono, direccion } = normalizarProveedor(req.body)
+        validarProveedor({ nombre_empresa, contacto, correo, telefono, direccion })
 
         if (correo) {
             const existeCorreo = await Proveedor.findOne({ where: { correo } })
@@ -38,8 +59,8 @@ exports.crearProveedor = async (req, res) => {
 
         res.status(201).json(proveedor)
     } catch (error) {
-        res.status(500).json({
-            mensaje: 'Error al crear proveedor',
+        res.status(error.status || 500).json({
+            mensaje: error.status ? error.message : 'Error al crear proveedor',
             error: error.message
         })
     }
@@ -69,19 +90,8 @@ exports.actualizarProveedor = async (req, res) => {
             })
         }
 
-        const {
-            nombre_empresa,
-            contacto,
-            correo,
-            telefono,
-            direccion
-        } = req.body
-
-        if (!nombre_empresa) {
-            return res.status(400).json({
-                mensaje: 'El nombre de la empresa es obligatorio'
-            })
-        }
+        const { nombre_empresa, contacto, correo, telefono, direccion } = normalizarProveedor(req.body)
+        validarProveedor({ nombre_empresa, contacto, correo, telefono, direccion })
 
         if (correo) {
             const existeCorreo = await Proveedor.findOne({
@@ -113,8 +123,8 @@ exports.actualizarProveedor = async (req, res) => {
             proveedor
         })
     } catch (error) {
-        res.status(500).json({
-            mensaje: 'Error al actualizar proveedor',
+        res.status(error.status || 500).json({
+            mensaje: error.status ? error.message : 'Error al actualizar proveedor',
             error: error.message
         })
     }

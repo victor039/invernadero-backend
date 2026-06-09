@@ -9,6 +9,16 @@ const nodemailer = require('nodemailer')
 
 const fs = require('fs')
 const path = require('path')
+const {
+    limpiarTexto,
+    validarCorreo,
+    validarLongitud,
+    validarLongitudMinMax,
+    validarNombrePersona,
+    validarPayload
+} = require('../utils/validaciones')
+
+const metodosPagoPermitidos = ['Efectivo', 'Tarjeta', 'Transferencia']
 
 const escaparHtml = (valor) => String(valor || '')
     .replace(/&/g, '&amp;')
@@ -374,6 +384,24 @@ exports.crearVenta = async (req, res) => {
             correo_ticket = ''
         } = req.body
 
+        const tipoClienteFinal = ['registrado', 'paso'].includes(tipo_cliente) ? tipo_cliente : 'registrado'
+        const metodoPagoFinal = limpiarTexto(metodo_pago || 'Efectivo')
+        const referenciaPagoFinal = limpiarTexto(referencia_pago)
+        const clientePasoFinal = limpiarTexto(cliente_paso || 'Cliente de paso') || 'Cliente de paso'
+        const correoTicketRecibido = limpiarTexto(correo_ticket).toLowerCase()
+
+        validarPayload([
+            { condicion: !Array.isArray(productos) || productos.length === 0, mensaje: 'Agrega al menos un producto a la venta' },
+            { condicion: productos?.length > 40, mensaje: 'La venta no puede tener más de 40 productos distintos' },
+            { condicion: !Number.isInteger(Number(id_cliente)) || Number(id_cliente) <= 0, mensaje: 'El cliente seleccionado no es válido' },
+            { condicion: !Number.isInteger(Number(id_empleado)) || Number(id_empleado) <= 0, mensaje: 'El empleado seleccionado no es válido' },
+            { condicion: tipoClienteFinal === 'paso' && (!validarLongitudMinMax(clientePasoFinal, 2, 60) || !validarNombrePersona(clientePasoFinal)), mensaje: 'El cliente de paso debe tener de 2 a 60 caracteres y solo letras' },
+            { condicion: !metodosPagoPermitidos.includes(metodoPagoFinal), mensaje: 'El método de pago no es válido' },
+            { condicion: metodoPagoFinal !== 'Efectivo' && !referenciaPagoFinal, mensaje: 'La referencia de pago es obligatoria' },
+            { condicion: referenciaPagoFinal && !validarLongitud(referenciaPagoFinal, 40), mensaje: 'La referencia puede tener máximo 40 caracteres' },
+            { condicion: correoTicketRecibido && !validarCorreo(correoTicketRecibido), mensaje: 'El correo del ticket no tiene formato válido' }
+        ])
+
         let total = 0
         const productosTicket = []
 
@@ -382,6 +410,13 @@ exports.crearVenta = async (req, res) => {
         // =========================
 
         for (const item of productos) {
+            const cantidad = Number(item.cantidad)
+
+            if (!Number.isInteger(cantidad) || cantidad <= 0 || cantidad > 9999) {
+                return res.status(400).json({
+                    mensaje: 'Cada producto debe tener una cantidad válida'
+                })
+            }
 
             const planta = await Planta.findByPk(
                 item.id_planta
@@ -395,7 +430,7 @@ exports.crearVenta = async (req, res) => {
 
             }
 
-            if (planta.stock < item.cantidad) {
+            if (planta.stock < cantidad) {
 
                 return res.status(400).json({
                     mensaje: `Stock insuficiente para ${planta.nombre_comun}`
@@ -404,7 +439,7 @@ exports.crearVenta = async (req, res) => {
             }
 
             const precioUnitario = Number(planta.precio)
-            const subtotal = precioUnitario * Number(item.cantidad)
+            const subtotal = precioUnitario * cantidad
 
             total += subtotal
 
@@ -412,7 +447,7 @@ exports.crearVenta = async (req, res) => {
                 id_planta: planta.id_planta,
                 nombre: planta.nombre_comun,
                 nombre_cientifico: planta.nombre_cientifico,
-                cantidad: Number(item.cantidad),
+                cantidad,
                 precio_unitario: precioUnitario,
                 subtotal
             })
@@ -428,20 +463,19 @@ exports.crearVenta = async (req, res) => {
             descarga: true,
             correo: Boolean(entrega_ticket.correo)
         }
-        const correoTicketFinal = tipo_cliente === 'paso'
-            ? String(correo_ticket || '').trim()
-            : String(correo_ticket || cliente?.correo || '').trim()
-        const clientePasoFinal = String(cliente_paso || 'Cliente de paso').trim() || 'Cliente de paso'
+        const correoTicketFinal = tipoClienteFinal === 'paso'
+            ? correoTicketRecibido
+            : limpiarTexto(correoTicketRecibido || cliente?.correo).toLowerCase()
 
         const venta = await Venta.create({
 
-            id_cliente,
-            id_empleado,
+            id_cliente: Number(id_cliente),
+            id_empleado: Number(id_empleado),
             total,
-            tipo_cliente,
-            cliente_paso: tipo_cliente === 'paso' ? clientePasoFinal : null,
-            metodo_pago,
-            referencia_pago,
+            tipo_cliente: tipoClienteFinal,
+            cliente_paso: tipoClienteFinal === 'paso' ? clientePasoFinal : null,
+            metodo_pago: metodoPagoFinal,
+            referencia_pago: referenciaPagoFinal,
             ticket_descarga: entregaTicketFinal.descarga,
             ticket_correo: entregaTicketFinal.correo,
             correo_ticket: correoTicketFinal
@@ -483,11 +517,9 @@ exports.crearVenta = async (req, res) => {
         // CLIENTE
         // =========================
 
-        const empleado = await Empleado.findByPk(
-            id_empleado
-        )
+        const empleado = await Empleado.findByPk(Number(id_empleado))
 
-        const nombreCliente = tipo_cliente === 'paso'
+        const nombreCliente = tipoClienteFinal === 'paso'
             ? clientePasoFinal
             : (cliente ? `${cliente.nombre} ${cliente.apellido || ''}`.trim() : 'Cliente general')
 
@@ -576,7 +608,7 @@ doc
 const infoY = doc.y
 
 doc
-    .roundedRect(45, infoY, 505, referencia_pago ? 98 : 82, 8)
+    .roundedRect(45, infoY, 505, referenciaPagoFinal ? 98 : 82, 8)
     .fill('#f8fafc')
     .stroke('#e2e8f0')
 
@@ -593,7 +625,7 @@ doc
     .fillColor('#475569')
     .text('Tipo', 65, infoY + 56)
     .fillColor('#0f172a')
-    .text(tipo_cliente === 'paso' ? 'Cliente de paso' : 'Cliente registrado', 65, infoY + 70)
+    .text(tipoClienteFinal === 'paso' ? 'Cliente de paso' : 'Cliente registrado', 65, infoY + 70)
 
 doc
     .fontSize(10)
@@ -608,9 +640,9 @@ doc
     .fillColor('#475569')
     .text('Pago', 300, infoY + 56)
     .fillColor('#0f172a')
-    .text(referencia_pago ? `${metodo_pago} · Ref. ${referencia_pago}` : metodo_pago, 300, infoY + 70, { width: 220 })
+    .text(referenciaPagoFinal ? `${metodoPagoFinal} · Ref. ${referenciaPagoFinal}` : metodoPagoFinal, 300, infoY + 70, { width: 220 })
 
-doc.y = infoY + (referencia_pago ? 120 : 104)
+doc.y = infoY + (referenciaPagoFinal ? 120 : 104)
 
 // =========================
 // TABLA HEADER
@@ -746,8 +778,8 @@ if (entregaTicketFinal.descarga) {
             cliente: nombreCliente,
             empleado: nombreEmpleado,
             pago: {
-                metodo: metodo_pago,
-                referencia: referencia_pago
+                metodo: metodoPagoFinal,
+                referencia: referenciaPagoFinal
             },
             entregas,
             pdf: pdfUrl
@@ -758,10 +790,10 @@ if (entregaTicketFinal.descarga) {
 
         console.log(error)
 
-        res.status(500).json({
+        res.status(error.status || 500).json({
 
-            mensaje: 'Error al realizar venta',
-            error
+            mensaje: error.status ? error.message : 'Error al realizar venta',
+            error: error.message || error
 
         })
 

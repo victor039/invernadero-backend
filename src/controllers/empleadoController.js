@@ -6,6 +6,49 @@ const path = require('path')
 const Empleado = require('../models/Empleado')
 const Venta = require('../models/Venta')
 const sequelize = require('../config/database')
+const {
+    limpiarTexto,
+    normalizarTelefono,
+    validarCorreo,
+    validarLongitudMinMax,
+    validarNombrePersona,
+    validarPassword,
+    validarTelefono,
+    validarUsuario,
+    validarPayload
+} = require('../utils/validaciones')
+
+const normalizarEmpleado = (body) => ({
+    nombre: limpiarTexto(body.nombre),
+    apellido: limpiarTexto(body.apellido),
+    correo: limpiarTexto(body.correo).toLowerCase(),
+    telefono: normalizarTelefono(body.telefono),
+    foto: body.foto,
+    usuario: limpiarTexto(body.usuario),
+    contraseña: body.contraseña,
+    password: body.password,
+    id_rol: body.id_rol
+})
+
+const validarEmpleado = (empleado, { nuevo = false, perfilPropio = false } = {}) => {
+    const password = empleado.contraseña || empleado.password
+
+    validarPayload([
+        { condicion: !perfilPropio && !empleado.nombre, mensaje: 'El nombre del empleado es obligatorio' },
+        { condicion: empleado.nombre && !validarLongitudMinMax(empleado.nombre, 2, 30), mensaje: 'El nombre debe tener de 2 a 30 caracteres' },
+        { condicion: empleado.nombre && !validarNombrePersona(empleado.nombre), mensaje: 'El nombre solo puede contener letras' },
+        { condicion: empleado.apellido && !validarLongitudMinMax(empleado.apellido, 2, 40), mensaje: 'El apellido debe tener de 2 a 40 caracteres' },
+        { condicion: empleado.apellido && !validarNombrePersona(empleado.apellido), mensaje: 'El apellido solo puede contener letras' },
+        { condicion: !perfilPropio && !empleado.usuario, mensaje: 'El usuario es obligatorio' },
+        { condicion: empleado.usuario && !validarUsuario(empleado.usuario), mensaje: 'El usuario debe tener 3-30 caracteres y no iniciar o terminar con símbolos' },
+        { condicion: !perfilPropio && !empleado.correo, mensaje: 'El correo es obligatorio' },
+        { condicion: empleado.correo && !validarCorreo(empleado.correo), mensaje: 'El correo no tiene un formato válido' },
+        { condicion: empleado.telefono && !validarTelefono(empleado.telefono), mensaje: 'El teléfono debe tener 10 dígitos' },
+        { condicion: !validarPassword(password, nuevo), mensaje: 'La contraseña debe tener mínimo 8 caracteres con letras y números' },
+        { condicion: !perfilPropio && !empleado.id_rol, mensaje: 'El rol es obligatorio' },
+        { condicion: empleado.id_rol && ![1, 2].includes(Number(empleado.id_rol)), mensaje: 'El rol seleccionado no es válido' }
+    ])
+}
 
 const guardarFotoPerfil = (foto, idEmpleado) => {
     if (!foto || typeof foto !== 'string') return foto
@@ -59,23 +102,8 @@ const limpiarEmpleado = (empleado) => {
 
 exports.crearEmpleado = async (req, res) => {
     try {
-        const {
-            nombre,
-            apellido,
-            correo,
-            telefono,
-            foto,
-            usuario,
-            contraseña,
-            password,
-            id_rol
-        } = req.body
-
-        if (!nombre || !usuario || !(contraseña || password) || !id_rol) {
-            return res.status(400).json({
-                mensaje: 'Nombre, usuario, contraseña y rol son obligatorios'
-            })
-        }
+        const { nombre, apellido, correo, telefono, foto, usuario, contraseña, password, id_rol } = normalizarEmpleado(req.body)
+        validarEmpleado({ nombre, apellido, correo, telefono, usuario, contraseña, password, id_rol }, { nuevo: true })
 
         const existeEmpleado = await Empleado.findOne({
             where: {
@@ -118,8 +146,8 @@ exports.crearEmpleado = async (req, res) => {
 
         res.status(201).json(limpiarEmpleado(empleado))
     } catch (error) {
-        res.status(500).json({
-            mensaje: 'Error al crear empleado',
+        res.status(error.status || 500).json({
+            mensaje: error.status ? error.message : 'Error al crear empleado',
             error: error.message
         })
     }
@@ -161,17 +189,11 @@ exports.actualizarEmpleado = async (req, res) => {
             })
         }
 
-        const {
-            nombre,
-            apellido,
-            correo,
-            telefono,
-            foto,
-            usuario,
-            contraseña,
-            password,
-            id_rol
-        } = req.body
+        const { nombre, apellido, correo, telefono, foto, usuario, contraseña, password, id_rol } = normalizarEmpleado(req.body)
+        validarEmpleado(
+            { nombre, apellido, correo, telefono, usuario, contraseña, password, id_rol },
+            { nuevo: false, perfilPropio: !esAdmin }
+        )
 
         if (usuario || correo) {
             const existeEmpleado = await Empleado.findOne({
@@ -226,8 +248,8 @@ exports.actualizarEmpleado = async (req, res) => {
         })
     } catch (error) {
         console.error('Error al actualizar empleado:', error)
-        res.status(500).json({
-            mensaje: 'Error al actualizar empleado',
+        res.status(error.status || 500).json({
+            mensaje: error.status ? error.message : 'Error al actualizar empleado',
             error: error.message
         })
     }
