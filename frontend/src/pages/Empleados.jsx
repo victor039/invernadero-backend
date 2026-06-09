@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Swal from 'sweetalert2'
-import { FaEdit, FaIdBadge, FaPlus, FaShieldAlt, FaTrash, FaUserTie, FaUsers } from 'react-icons/fa'
+import { FaBriefcase, FaCrown, FaEdit, FaHeadset, FaIdBadge, FaLeaf, FaPlus, FaRocket, FaShieldAlt, FaStar, FaTrash, FaUserAstronaut, FaUserCog, FaUserTie, FaUsers } from 'react-icons/fa'
 
 import DashboardLayout from '../layouts/DashboardLayout'
 import api from '../services/api'
@@ -29,11 +29,20 @@ const obtenerFotoEmpleadoSrc = (foto) => {
 function AvatarEmpleado({ foto, idRol, nombre = 'Empleado', size = 'md' }) {
     const [errorImagen, setErrorImagen] = useState(false)
     const esAdmin = Number(idRol) === 1
-    const Icono = esAdmin ? FaShieldAlt : FaUserTie
+    const iconosAdmin = [FaShieldAlt, FaCrown, FaStar, FaUserCog]
+    const iconosEmpleado = [FaUserTie, FaHeadset, FaLeaf, FaBriefcase, FaRocket, FaUserAstronaut]
+    const semilla = String(nombre || '').split('').reduce((total, letra) => total + letra.charCodeAt(0), 0)
+    const listaIconos = esAdmin ? iconosAdmin : iconosEmpleado
+    const Icono = listaIconos[semilla % listaIconos.length]
     const dimensiones = size === 'lg' ? 'h-16 w-16 text-xl' : 'h-11 w-11 text-sm'
     const estilo = esAdmin
         ? 'bg-gradient-to-br from-amber-500 to-orange-600 text-white ring-amber-100'
-        : 'bg-gradient-to-br from-blue-600 to-cyan-600 text-white ring-blue-100'
+        : [
+            'bg-gradient-to-br from-blue-600 to-cyan-600 text-white ring-blue-100',
+            'bg-gradient-to-br from-violet-600 to-fuchsia-600 text-white ring-violet-100',
+            'bg-gradient-to-br from-emerald-600 to-teal-600 text-white ring-emerald-100',
+            'bg-gradient-to-br from-slate-700 to-slate-950 text-white ring-slate-100'
+        ][semilla % 4]
 
     if (foto && !errorImagen) {
         return (
@@ -260,12 +269,16 @@ function Empleados() {
                         <div className="flex items-center gap-3">
                             <AvatarEmpleado foto={fotoPreview} idRol={form.id_rol} nombre={form.nombre || 'Empleado'} size="lg" />
                             <div className="min-w-0">
-                                <p className="text-sm font-bold text-slate-900">Logo de rol</p>
-                                <p className="text-xs text-slate-500">Administrador y empleado se distinguen automáticamente.</p>
+                                <p className="text-sm font-bold text-slate-900">Avatar del personal</p>
+                                <p className="text-xs text-slate-500">El icono se asigna según el rol.</p>
                             </div>
                         </div>
-                        <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600">
-                            No depende de archivos subidos, ideal para Render.
+                        <div className="mt-3 grid grid-cols-4 gap-2">
+                            {[FaShieldAlt, FaCrown, FaUserTie, FaLeaf].map((Icono, index) => (
+                                <div key={index} className="flex h-9 items-center justify-center rounded-md border border-slate-200 bg-slate-50 text-slate-600">
+                                    <Icono />
+                                </div>
+                            ))}
                         </div>
                     </div>
                     <div>

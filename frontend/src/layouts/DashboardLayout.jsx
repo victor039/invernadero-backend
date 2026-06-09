@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
-import { FaBell, FaBoxOpen, FaCashRegister, FaChartLine, FaCheckDouble, FaChevronRight, FaDatabase, FaHandHoldingUsd, FaHome, FaLeaf, FaPowerOff, FaSave, FaSeedling, FaShieldAlt, FaShippingFast, FaTimes, FaUserFriends, FaUserTie, FaUsers } from 'react-icons/fa'
+import { FaBell, FaBoxOpen, FaBriefcase, FaCashRegister, FaChartLine, FaCheckDouble, FaChevronRight, FaCrown, FaDatabase, FaHandHoldingUsd, FaHeadset, FaHome, FaLeaf, FaPowerOff, FaRocket, FaSave, FaSeedling, FaShieldAlt, FaShippingFast, FaStar, FaTimes, FaUserAstronaut, FaUserCog, FaUserFriends, FaUserTie, FaUsers } from 'react-icons/fa'
 import Swal from 'sweetalert2'
 import { guardarPerfilLocal } from '../utils/perfilLocal'
 import api from '../services/api'
@@ -23,10 +23,19 @@ const obtenerFotoPerfilSrc = (foto) => {
 function AvatarPerfil({ foto, idRol, nombre = 'Perfil', className = '' }) {
     const [errorImagen, setErrorImagen] = useState(false)
     const esAdmin = Number(idRol) === 1
-    const Icono = esAdmin ? FaShieldAlt : FaUserTie
+    const iconosAdmin = [FaShieldAlt, FaCrown, FaStar, FaUserCog]
+    const iconosEmpleado = [FaUserTie, FaHeadset, FaLeaf, FaBriefcase, FaRocket, FaUserAstronaut]
+    const semilla = String(nombre || '').split('').reduce((total, letra) => total + letra.charCodeAt(0), 0)
+    const listaIconos = esAdmin ? iconosAdmin : iconosEmpleado
+    const Icono = listaIconos[semilla % listaIconos.length]
     const estilo = esAdmin
         ? 'bg-gradient-to-br from-emerald-500 to-teal-700 text-white'
-        : 'bg-gradient-to-br from-blue-600 to-cyan-600 text-white'
+        : [
+            'bg-gradient-to-br from-blue-600 to-cyan-600 text-white',
+            'bg-gradient-to-br from-violet-600 to-fuchsia-600 text-white',
+            'bg-gradient-to-br from-emerald-600 to-teal-600 text-white',
+            'bg-gradient-to-br from-slate-700 to-slate-950 text-white'
+        ][semilla % 4]
 
     if (foto && !errorImagen) {
         return (
@@ -595,8 +604,8 @@ function DashboardLayout({ children }) {
                                     className="h-20 w-20 text-2xl"
                                 />
                                 <div className={`rounded-md border px-4 py-2 text-sm font-bold ${tema.botonSuave}`}>
-                                    Logo de rol automático
-                                    <p className="mt-1 text-xs font-semibold opacity-70">No depende de archivos de Render.</p>
+                                    Avatar de rol automático
+                                    <p className="mt-1 text-xs font-semibold opacity-70">Tu perfil mantiene una identidad visual del panel.</p>
                                 </div>
                             </div>
 
