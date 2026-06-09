@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
-import { FaBell, FaBoxOpen, FaCamera, FaCashRegister, FaChartLine, FaCheckDouble, FaChevronRight, FaDatabase, FaHandHoldingUsd, FaHome, FaLeaf, FaPowerOff, FaSave, FaSeedling, FaShieldAlt, FaShippingFast, FaTimes, FaUserFriends, FaUserTie, FaUsers } from 'react-icons/fa'
+import { FaBell, FaBoxOpen, FaCashRegister, FaChartLine, FaCheckDouble, FaChevronRight, FaDatabase, FaHandHoldingUsd, FaHome, FaLeaf, FaPowerOff, FaSave, FaSeedling, FaShieldAlt, FaShippingFast, FaTimes, FaUserFriends, FaUserTie, FaUsers } from 'react-icons/fa'
 import Swal from 'sweetalert2'
 import { guardarPerfilLocal } from '../utils/perfilLocal'
 import api from '../services/api'
@@ -12,23 +12,6 @@ const formatoMonedaNotificacion = new Intl.NumberFormat('es-MX', {
 })
 
 const API_ORIGIN = (import.meta.env.VITE_API_URL || 'https://invernadero-backend-pfgt.onrender.com/api').replace(/\/api\/?$/, '')
-const MAX_FOTO_PERFIL_BYTES = 450 * 1024
-
-const dataUrlBytes = (dataUrl = '') => Math.ceil((dataUrl.length * 3) / 4)
-
-const dataUrlToBlob = (dataUrl) => {
-    const [metadata, base64] = dataUrl.split(',')
-    const mime = metadata.match(/data:(.*);base64/)?.[1] || 'image/jpeg'
-    const binary = atob(base64)
-    const bytes = new Uint8Array(binary.length)
-
-    for (let index = 0; index < binary.length; index += 1) {
-        bytes[index] = binary.charCodeAt(index)
-    }
-
-    return new Blob([bytes], { type: mime })
-}
-
 const obtenerFotoPerfilSrc = (foto) => {
     if (!foto) return ''
     if (foto.startsWith('data:image/') || foto.startsWith('http')) return foto
@@ -37,70 +20,35 @@ const obtenerFotoPerfilSrc = (foto) => {
     return `${API_ORIGIN}/uploads/${ruta}`
 }
 
+function AvatarPerfil({ foto, idRol, nombre = 'Perfil', className = '' }) {
+    const [errorImagen, setErrorImagen] = useState(false)
+    const esAdmin = Number(idRol) === 1
+    const Icono = esAdmin ? FaShieldAlt : FaUserTie
+    const estilo = esAdmin
+        ? 'bg-gradient-to-br from-emerald-500 to-teal-700 text-white'
+        : 'bg-gradient-to-br from-blue-600 to-cyan-600 text-white'
+
+    if (foto && !errorImagen) {
+        return (
+            <div className={`flex shrink-0 items-center justify-center overflow-hidden rounded-full ${estilo} ${className}`}>
+                <img
+                    src={obtenerFotoPerfilSrc(foto)}
+                    alt={nombre}
+                    onError={() => setErrorImagen(true)}
+                    className="h-full w-full object-cover"
+                />
+            </div>
+        )
+    }
+
+    return (
+        <div className={`flex shrink-0 items-center justify-center rounded-full ${estilo} ${className}`}>
+            <Icono />
+        </div>
+    )
+}
+
 const SIDEBAR_SCROLL_KEY = 'dashboard_sidebar_scroll'
-
-const comprimirImagenDesdeSrc = (src) => new Promise((resolve, reject) => {
-    const image = new Image()
-
-    image.onload = () => {
-        const opciones = [
-            { size: 360, quality: 0.82 },
-            { size: 320, quality: 0.72 },
-            { size: 280, quality: 0.62 },
-            { size: 240, quality: 0.56 }
-        ]
-
-        let mejorResultado = ''
-
-        for (const opcion of opciones) {
-            const canvas = document.createElement('canvas')
-            const ctx = canvas.getContext('2d')
-            const escala = Math.max(opcion.size / image.width, opcion.size / image.height)
-            const ancho = image.width * escala
-            const alto = image.height * escala
-            const x = (opcion.size - ancho) / 2
-            const y = (opcion.size - alto) / 2
-
-            canvas.width = opcion.size
-            canvas.height = opcion.size
-            ctx.fillStyle = '#ffffff'
-            ctx.fillRect(0, 0, opcion.size, opcion.size)
-            ctx.drawImage(image, x, y, ancho, alto)
-
-            mejorResultado = canvas.toDataURL('image/jpeg', opcion.quality)
-
-            if (dataUrlBytes(mejorResultado) <= MAX_FOTO_PERFIL_BYTES) {
-                break
-            }
-        }
-
-        resolve(mejorResultado)
-    }
-
-    image.onerror = () => {
-        reject(new Error('No se pudo procesar la imagen'))
-    }
-
-    image.src = src
-})
-
-const comprimirImagenPerfil = async (file) => {
-    const objectUrl = URL.createObjectURL(file)
-
-    try {
-        return await comprimirImagenDesdeSrc(objectUrl)
-    } finally {
-        URL.revokeObjectURL(objectUrl)
-    }
-}
-
-const ajustarFotoPerfil = async (foto) => {
-    if (!foto || typeof foto !== 'string') return ''
-    if (!foto.startsWith('data:image/')) return foto
-    if (dataUrlBytes(foto) <= MAX_FOTO_PERFIL_BYTES) return foto
-
-    return comprimirImagenDesdeSrc(foto)
-}
 
 function DashboardLayout({ children }) {
     const navigate = useNavigate()
@@ -111,7 +59,6 @@ function DashboardLayout({ children }) {
     const [ventaDetalle, setVentaDetalle] = useState(null)
     const [ventasEmpleado, setVentasEmpleado] = useState([])
     const [guardandoPerfil, setGuardandoPerfil] = useState(false)
-    const [fotoPerfilArchivo, setFotoPerfilArchivo] = useState(null)
     const [ultimaVentaVista, setUltimaVentaVista] = useState(() => Number(localStorage.getItem(`ventas_vistas_admin_${usuario.id_empleado}`) || 0))
     const sidebarNavRef = useRef(null)
     const sidebarScrollInicial = useRef(Number(sessionStorage.getItem(SIDEBAR_SCROLL_KEY) || 0))
@@ -140,7 +87,6 @@ function DashboardLayout({ children }) {
     }
 
     const abrirPerfil = () => {
-        setFotoPerfilArchivo(null)
         setPerfilForm({
             nombre: usuario.nombre || usuario.usuario || '',
             apellido: usuario.apellido || '',
@@ -152,33 +98,6 @@ function DashboardLayout({ children }) {
             foto: usuario.foto || ''
         })
         setPerfilAbierto(true)
-    }
-
-    const cambiarFoto = async (event) => {
-        const file = event.target.files?.[0]
-        if (!file) return
-
-        if (!file.type.startsWith('image/')) {
-            Swal.fire('Archivo no válido', 'Elige una imagen para tu perfil.', 'warning')
-            event.target.value = ''
-            return
-        }
-
-        try {
-            const fotoComprimida = await comprimirImagenPerfil(file)
-            const fotoBlob = dataUrlToBlob(fotoComprimida)
-
-            setPerfilForm((prev) => ({
-                ...prev,
-                foto: fotoComprimida
-            }))
-            setFotoPerfilArchivo(fotoBlob)
-        } catch (error) {
-            console.log(error)
-            Swal.fire('Imagen no procesada', 'No se pudo preparar la imagen. Prueba con otra foto.', 'error')
-        } finally {
-            event.target.value = ''
-        }
     }
 
     const guardarPerfil = async (event) => {
@@ -224,13 +143,6 @@ function DashboardLayout({ children }) {
             formData.append('correo', correo)
             formData.append('telefono', telefono)
 
-            if (fotoPerfilArchivo) {
-                formData.append('foto', fotoPerfilArchivo, `perfil-${usuario.id_empleado}.jpg`)
-            } else if (perfilForm.foto?.startsWith('data:image/')) {
-                const fotoAjustada = await ajustarFotoPerfil(perfilForm.foto)
-                formData.append('foto', dataUrlToBlob(fotoAjustada), `perfil-${usuario.id_empleado}.jpg`)
-            }
-
             const response = await api.put(
                 `/empleados/${usuario.id_empleado}`,
                 formData,
@@ -262,9 +174,8 @@ function DashboardLayout({ children }) {
                 ...prev,
                 foto: usuarioPersistido.foto || prev.foto
             }))
-            setFotoPerfilArchivo(null)
             setPerfilAbierto(false)
-            Swal.fire('Perfil guardado', 'La foto y tus datos se guardaron correctamente.', 'success')
+            Swal.fire('Perfil guardado', 'Tus datos se guardaron correctamente.', 'success')
         } catch (error) {
             console.log(error)
             const mensaje = error.response?.status === 413
@@ -474,13 +385,12 @@ function DashboardLayout({ children }) {
                     >
                         <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Sesión activa</p>
                         <div className="mt-3 flex items-center gap-3">
-                            <div className={`flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full ring-2 transition ${tema.avatar}`}>
-                                {usuario.foto ? (
-                                    <img src={obtenerFotoPerfilSrc(usuario.foto)} alt={usuario.nombre || 'Perfil'} className="h-full w-full object-cover" />
-                                ) : (
-                                    <FaUserTie />
-                                )}
-                            </div>
+                            <AvatarPerfil
+                                foto={usuario.foto}
+                                idRol={usuario.id_rol}
+                                nombre={usuario.nombre || 'Perfil'}
+                                className={`h-12 w-12 ring-2 transition ${tema.avatar}`}
+                            />
                             <div className="min-w-0 flex-1">
                                 <p className="truncate font-semibold">{`${usuario.nombre || usuario.usuario || 'Administrador'} ${usuario.apellido || ''}`.trim()}</p>
                                 <p className="truncate text-sm text-slate-400">{usuario.correo || 'Acceso interno'}</p>
@@ -678,18 +588,16 @@ function DashboardLayout({ children }) {
 
                         <div className="max-h-[70vh] overflow-y-auto p-5">
                             <div className="flex items-center gap-4">
-                                <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-900 text-2xl text-white">
-                                    {perfilForm.foto ? (
-                                        <img src={obtenerFotoPerfilSrc(perfilForm.foto)} alt="Vista previa" className="h-full w-full object-cover" />
-                                    ) : (
-                                        <FaUserTie />
-                                    )}
+                                <AvatarPerfil
+                                    foto={perfilForm.foto}
+                                    idRol={usuario.id_rol}
+                                    nombre={perfilForm.nombre || 'Perfil'}
+                                    className="h-20 w-20 text-2xl"
+                                />
+                                <div className={`rounded-md border px-4 py-2 text-sm font-bold ${tema.botonSuave}`}>
+                                    Logo de rol automático
+                                    <p className="mt-1 text-xs font-semibold opacity-70">No depende de archivos de Render.</p>
                                 </div>
-                                <label className={`inline-flex cursor-pointer items-center gap-2 rounded-md border px-4 py-2 text-sm font-bold ${tema.botonSuave}`}>
-                                    <FaCamera />
-                                    Cambiar foto
-                                    <input type="file" accept="image/*" onChange={cambiarFoto} className="hidden" />
-                                </label>
                             </div>
 
                             <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">

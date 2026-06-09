@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Swal from 'sweetalert2'
-import { FaCamera, FaEdit, FaIdBadge, FaPlus, FaShieldAlt, FaTrash, FaUserTie, FaUsers } from 'react-icons/fa'
+import { FaEdit, FaIdBadge, FaPlus, FaShieldAlt, FaTrash, FaUserTie, FaUsers } from 'react-icons/fa'
 
 import DashboardLayout from '../layouts/DashboardLayout'
 import api from '../services/api'
@@ -26,48 +26,34 @@ const obtenerFotoEmpleadoSrc = (foto) => {
     return `${API_ORIGIN}/uploads/${ruta}`
 }
 
-const dataUrlToBlob = (dataUrl) => {
-    const [metadata, base64] = dataUrl.split(',')
-    const mime = metadata.match(/data:(.*);base64/)?.[1] || 'image/jpeg'
-    const binary = atob(base64)
-    const bytes = new Uint8Array(binary.length)
+function AvatarEmpleado({ foto, idRol, nombre = 'Empleado', size = 'md' }) {
+    const [errorImagen, setErrorImagen] = useState(false)
+    const esAdmin = Number(idRol) === 1
+    const Icono = esAdmin ? FaShieldAlt : FaUserTie
+    const dimensiones = size === 'lg' ? 'h-16 w-16 text-xl' : 'h-11 w-11 text-sm'
+    const estilo = esAdmin
+        ? 'bg-gradient-to-br from-amber-500 to-orange-600 text-white ring-amber-100'
+        : 'bg-gradient-to-br from-blue-600 to-cyan-600 text-white ring-blue-100'
 
-    for (let index = 0; index < binary.length; index += 1) {
-        bytes[index] = binary.charCodeAt(index)
+    if (foto && !errorImagen) {
+        return (
+            <div className={`flex shrink-0 items-center justify-center overflow-hidden rounded-full ring-2 ${dimensiones} ${estilo}`}>
+                <img
+                    src={obtenerFotoEmpleadoSrc(foto)}
+                    alt={nombre}
+                    onError={() => setErrorImagen(true)}
+                    className="h-full w-full object-cover"
+                />
+            </div>
+        )
     }
 
-    return new Blob([bytes], { type: mime })
+    return (
+        <div className={`flex shrink-0 items-center justify-center rounded-full ring-2 ${dimensiones} ${estilo}`}>
+            <Icono />
+        </div>
+    )
 }
-
-const comprimirImagenEmpleado = (file) => new Promise((resolve, reject) => {
-    const image = new Image()
-    const objectUrl = URL.createObjectURL(file)
-
-    image.onload = () => {
-        const size = 320
-        const canvas = document.createElement('canvas')
-        const ctx = canvas.getContext('2d')
-        const escala = Math.max(size / image.width, size / image.height)
-        const ancho = image.width * escala
-        const alto = image.height * escala
-
-        canvas.width = size
-        canvas.height = size
-        ctx.fillStyle = '#ffffff'
-        ctx.fillRect(0, 0, size, size)
-        ctx.drawImage(image, (size - ancho) / 2, (size - alto) / 2, ancho, alto)
-
-        URL.revokeObjectURL(objectUrl)
-        resolve(canvas.toDataURL('image/jpeg', 0.78))
-    }
-
-    image.onerror = () => {
-        URL.revokeObjectURL(objectUrl)
-        reject(new Error('No se pudo procesar la imagen'))
-    }
-
-    image.src = objectUrl
-})
 
 function Empleados() {
     const [empleados, setEmpleados] = useState([])
@@ -77,7 +63,6 @@ function Empleados() {
     const [editandoId, setEditandoId] = useState(null)
     const [guardando, setGuardando] = useState(false)
     const [fotoPreview, setFotoPreview] = useState('')
-    const [fotoArchivo, setFotoArchivo] = useState(null)
     const formRef = useRef(null)
 
     const token = localStorage.getItem('token')
@@ -121,7 +106,6 @@ function Empleados() {
         setErrores({})
         setEditandoId(null)
         setFotoPreview('')
-        setFotoArchivo(null)
     }
 
     const handleChange = (e) => {
@@ -136,28 +120,6 @@ function Empleados() {
 
         setForm({ ...form, [name]: valorLimpio })
         setErrores({ ...errores, [name]: '' })
-    }
-
-    const cambiarFoto = async (event) => {
-        const file = event.target.files?.[0]
-        if (!file) return
-
-        if (!file.type.startsWith('image/')) {
-            Swal.fire('Archivo no válido', 'Selecciona una imagen para el empleado.', 'warning')
-            event.target.value = ''
-            return
-        }
-
-        try {
-            const fotoComprimida = await comprimirImagenEmpleado(file)
-            setFotoPreview(fotoComprimida)
-            setFotoArchivo(dataUrlToBlob(fotoComprimida))
-        } catch (error) {
-            console.log(error)
-            Swal.fire('Imagen no procesada', 'No se pudo preparar la foto del empleado.', 'error')
-        } finally {
-            event.target.value = ''
-        }
     }
 
     const guardar = async (e) => {
@@ -177,10 +139,6 @@ function Empleados() {
 
             if (form.contraseña) {
                 payload.append('password', form.contraseña)
-            }
-
-            if (fotoArchivo) {
-                payload.append('foto', fotoArchivo, `empleado-${form.usuario || 'perfil'}.jpg`)
             }
 
             if (editandoId) {
@@ -214,7 +172,6 @@ function Empleados() {
             id_rol: String(empleado.id_rol || '2')
         })
         setFotoPreview(empleado.foto || '')
-        setFotoArchivo(null)
 
         setTimeout(() => {
             formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -270,7 +227,7 @@ function Empleados() {
     })
     const totalAdmins = empleados.filter((empleado) => Number(empleado.id_rol) === 1).length
     const totalOperativos = empleados.filter((empleado) => Number(empleado.id_rol) !== 1).length
-    const conFoto = empleados.filter((empleado) => Boolean(empleado.foto)).length
+    const conLogo = empleados.length
 
     return (
         <DashboardLayout>
@@ -301,23 +258,15 @@ function Empleados() {
                     <input type="text" name="fake-employee-pass" autoComplete="off" className="hidden" tabIndex="-1" aria-hidden="true" />
                     <div className="rounded-lg border border-dashed border-slate-300 bg-white p-3 xl:row-span-2">
                         <div className="flex items-center gap-3">
-                            <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-900 text-xl text-white">
-                                {fotoPreview ? (
-                                    <img src={obtenerFotoEmpleadoSrc(fotoPreview)} alt="Foto del empleado" className="h-full w-full object-cover" />
-                                ) : (
-                                    <FaUserTie />
-                                )}
-                            </div>
+                            <AvatarEmpleado foto={fotoPreview} idRol={form.id_rol} nombre={form.nombre || 'Empleado'} size="lg" />
                             <div className="min-w-0">
-                                <p className="text-sm font-bold text-slate-900">Foto del empleado</p>
-                                <p className="text-xs text-slate-500">Se ajusta automáticamente.</p>
+                                <p className="text-sm font-bold text-slate-900">Logo de rol</p>
+                                <p className="text-xs text-slate-500">Administrador y empleado se distinguen automáticamente.</p>
                             </div>
                         </div>
-                        <label className="mt-3 inline-flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-md border border-amber-200 bg-amber-50 text-sm font-bold text-amber-800 transition hover:bg-amber-100">
-                            <FaCamera />
-                            {fotoPreview ? 'Cambiar foto' : 'Agregar foto'}
-                            <input type="file" accept="image/*" onChange={cambiarFoto} className="hidden" />
-                        </label>
+                        <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600">
+                            No depende de archivos subidos, ideal para Render.
+                        </div>
                     </div>
                     <div>
                         <input name="nombre" value={form.nombre} onChange={handleChange} placeholder="Nombre" maxLength={30} className="h-11 w-full rounded-md border border-slate-300 px-3 outline-none focus:border-emerald-600" />
@@ -376,10 +325,10 @@ function Empleados() {
                     </div>
                     <div className="rounded-lg border border-amber-100 bg-amber-50 p-4">
                         <div className="flex items-center justify-between">
-                            <p className="text-sm font-semibold text-amber-700">Admins / fotos</p>
+                            <p className="text-sm font-semibold text-amber-700">Admins / logos</p>
                             <FaShieldAlt className="text-amber-700" />
                         </div>
-                        <p className="mt-2 text-2xl font-bold text-amber-950">{totalAdmins} / {conFoto}</p>
+                        <p className="mt-2 text-2xl font-bold text-amber-950">{totalAdmins} / {conLogo}</p>
                     </div>
                 </section>
 
@@ -405,13 +354,7 @@ function Empleados() {
                                 <tr key={empleado.id_empleado} className="border-b transition last:border-0 hover:bg-amber-50/60">
                                     <td className="px-3 py-4">
                                         <div className="flex items-center gap-3">
-                                            <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-900 text-sm font-bold text-white">
-                                                {empleado.foto ? (
-                                                    <img src={obtenerFotoEmpleadoSrc(empleado.foto)} alt={`${empleado.nombre} ${empleado.apellido}`} className="h-full w-full object-cover" />
-                                                ) : (
-                                                    <FaUserTie />
-                                                )}
-                                            </div>
+                                            <AvatarEmpleado foto={empleado.foto} idRol={empleado.id_rol} nombre={`${empleado.nombre} ${empleado.apellido}`} />
                                             <div>
                                                 <p className="font-semibold text-slate-900">{empleado.nombre} {empleado.apellido}</p>
                                                 <p className="text-xs text-slate-500">ID #{empleado.id_empleado}</p>
