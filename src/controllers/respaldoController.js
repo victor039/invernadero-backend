@@ -235,7 +235,8 @@ const obtenerResumenTablas = async () => {
 const generarPdfRespaldo = async ({ nombreArchivo, resumenTablas, contenidoSql }) => new Promise((resolve, reject) => {
     const doc = new PDFDocument({
         size: 'A4',
-        margin: 42
+        margin: 42,
+        bufferPages: true
     })
     const chunks = []
     const fecha = new Date()
@@ -246,13 +247,15 @@ const generarPdfRespaldo = async ({ nombreArchivo, resumenTablas, contenidoSql }
     let pagina = 1
     let y = 0
 
-    const piePagina = () => {
+    const piePagina = (numeroPagina) => {
+        doc.save()
         doc.fillColor('#64748b').fontSize(8).text(
-            `${obtenerNombreSistema()} | Respaldo y auditoría | Página ${pagina} | ${fecha.toLocaleDateString('es-MX')}`,
+            `${obtenerNombreSistema()} | Respaldo y auditoría | Página ${numeroPagina} | ${fecha.toLocaleDateString('es-MX')}`,
             42,
-            doc.page.height - 42,
-            { width: 510, align: 'center' }
+            doc.page.height - 34,
+            { width: 510, align: 'center', lineBreak: false }
         )
+        doc.restore()
     }
 
     const prepararPagina = ({ encabezado = false } = {}) => {
@@ -269,10 +272,17 @@ const generarPdfRespaldo = async ({ nombreArchivo, resumenTablas, contenidoSql }
     }
 
     const nuevaPagina = () => {
-        piePagina()
         doc.addPage()
         pagina += 1
         prepararPagina({ encabezado: true })
+    }
+
+    const numerarPaginas = () => {
+        const rango = doc.bufferedPageRange()
+        for (let index = rango.start; index < rango.start + rango.count; index += 1) {
+            doc.switchToPage(index)
+            piePagina(index - rango.start + 1)
+        }
     }
 
     const asegurarEspacio = (alto) => {
@@ -409,7 +419,7 @@ const generarPdfRespaldo = async ({ nombreArchivo, resumenTablas, contenidoSql }
         { width: 482, height: 126 }
     )
 
-    piePagina()
+    numerarPaginas()
 
     doc.end()
 })
