@@ -189,16 +189,43 @@ const obtenerResumenTablas = async () => {
     const tablas = ordenarTablasParaImportacion(await queryInterface.showAllTables())
     const dialect = obtenerDialect()
     const resumen = []
+    const columnasSensibles = new Set(['contraseña', 'password_hash', 'password'])
 
     for (const tabla of tablas) {
         const nombreTabla = typeof tabla === 'string' ? tabla : tabla.tableName
         const tablaSql = entreComillas(nombreTabla, dialect)
         const [resultado] = await sequelize.query(`SELECT COUNT(*) AS total FROM ${tablaSql}`)
+        const [muestras] = await sequelize.query(`SELECT * FROM ${tablaSql} LIMIT 3`)
         const total = Number(resultado[0]?.total || resultado[0]?.count || 0)
+        const columnas = muestras[0]
+            ? Object.keys(muestras[0])
+            : Object.keys(obtenerModeloPorTabla(nombreTabla)?.rawAttributes || {})
+        const columnasVisibles = columnas.filter((columna) => !columnasSensibles.has(columna))
+        const registros = muestras.map((fila) => {
+            const registro = {}
+            columnasVisibles.slice(0, 5).forEach((columna) => {
+                const valor = fila[columna]
+                if (valor === null || valor === undefined || valor === '') {
+                    registro[columna] = 'Sin dato'
+                    return
+                }
+
+                if (valor instanceof Date) {
+                    registro[columna] = valor.toISOString().slice(0, 10)
+                    return
+                }
+
+                const texto = String(valor)
+                registro[columna] = texto.length > 42 ? `${texto.slice(0, 39)}...` : texto
+            })
+            return registro
+        })
 
         resumen.push({
             tabla: nombreTabla,
-            total
+            total,
+            columnas: columnasVisibles,
+            registros
         })
     }
 
@@ -216,21 +243,54 @@ const generarPdfRespaldo = async ({ nombreArchivo, resumenTablas, contenidoSql }
     const tablaMayor = resumenTablas.reduce((mayor, item) => item.total > mayor.total ? item : mayor, { tabla: 'Sin datos', total: 0 })
     const tamanoSqlKb = Math.max(1, Math.round(Buffer.byteLength(contenidoSql, 'utf8') / 1024))
     const maxRegistros = Math.max(1, ...resumenTablas.map((item) => item.total))
+    let pagina = 1
+    let y = 0
 
     const piePagina = () => {
         doc.fillColor('#64748b').fontSize(8).text(
-            `${obtenerNombreSistema()} | Documento de auditoría de respaldo | ${fecha.toLocaleDateString('es-MX')}`,
+            `${obtenerNombreSistema()} | Respaldo y auditoría | Página ${pagina} | ${fecha.toLocaleDateString('es-MX')}`,
             42,
             doc.page.height - 42,
             { width: 510, align: 'center' }
         )
     }
 
+    const prepararPagina = ({ encabezado = false } = {}) => {
+        doc.rect(0, 0, doc.page.width, doc.page.height).fill('#f8fafc')
+        if (encabezado) {
+            doc.rect(0, 0, doc.page.width, 78).fill('#020617')
+            doc.rect(0, 78, doc.page.width, 5).fill('#10b981')
+            doc.fillColor('#ffffff').fontSize(16).text('Reporte de respaldo', 42, 28)
+            doc.fillColor('#a7f3d0').fontSize(9).text('Invernadero | Auditoría de datos', 42, 50)
+            y = 112
+        } else {
+            y = 42
+        }
+    }
+
+    const nuevaPagina = () => {
+        piePagina()
+        doc.addPage()
+        pagina += 1
+        prepararPagina({ encabezado: true })
+    }
+
+    const asegurarEspacio = (alto) => {
+        if (y + alto > doc.page.height - 72) {
+            nuevaPagina()
+        }
+    }
+
+    const textoSeguro = (valor, max = 80) => {
+        const texto = String(valor || 'Sin dato').replace(/\s+/g, ' ').trim()
+        return texto.length > max ? `${texto.slice(0, max - 3)}...` : texto
+    }
+
     doc.on('data', (chunk) => chunks.push(chunk))
     doc.on('end', () => resolve(Buffer.concat(chunks)))
     doc.on('error', reject)
 
-    doc.rect(0, 0, doc.page.width, doc.page.height).fill('#f8fafc')
+    prepararPagina()
     doc.rect(0, 0, doc.page.width, 152).fill('#020617')
     doc.rect(0, 152, doc.page.width, 7).fill('#10b981')
     doc.fillColor('#ffffff').fontSize(28).text('Reporte profesional de respaldo', 42, 38)
@@ -241,11 +301,12 @@ const generarPdfRespaldo = async ({ nombreArchivo, resumenTablas, contenidoSql }
     doc.fillColor('#d1fae5').fontSize(9).text('TOTAL REGISTROS', 432, 52)
     doc.fillColor('#ffffff').fontSize(28).text(String(totalRegistros), 432, 68)
 
-    doc.fillColor('#0f172a').fontSize(15).text('Resumen ejecutivo', 42, 190)
+    y = 190
+    doc.fillColor('#0f172a').fontSize(15).text('Resumen ejecutivo', 42, y)
     doc.fillColor('#64748b').fontSize(10).text(
         'Este documento acompaña al archivo SQL descargable y sirve como evidencia de qué tablas y registros fueron incluidos.',
         42,
-        213,
+        y + 23,
         { width: 510, lineGap: 3 }
     )
 
@@ -265,16 +326,12 @@ const generarPdfRespaldo = async ({ nombreArchivo, resumenTablas, contenidoSql }
         doc.fillColor('#64748b').fontSize(8).text(card.label.toUpperCase(), x + 18, y + 43)
     })
 
-    doc.fillColor('#0f172a').fontSize(15).text('Distribución por tabla', 42, 435)
+    y = 435
+    doc.fillColor('#0f172a').fontSize(15).text('Distribución por tabla', 42, y)
 
-    let y = 462
+    y = 462
     resumenTablas.forEach((item, index) => {
-        if (y > 710) {
-            piePagina()
-            doc.addPage()
-            doc.rect(0, 0, doc.page.width, doc.page.height).fill('#f8fafc')
-            y = 42
-        }
+        asegurarEspacio(38)
 
         const anchoBarra = Math.round((item.total / maxRegistros) * 210)
         doc.roundedRect(42, y, 510, 34, 5).fill(index % 2 === 0 ? '#ffffff' : '#f1f5f9').stroke('#e2e8f0')
@@ -285,14 +342,50 @@ const generarPdfRespaldo = async ({ nombreArchivo, resumenTablas, contenidoSql }
         y += 38
     })
 
-    if (y > 640) {
-        piePagina()
-        doc.addPage()
-        doc.rect(0, 0, doc.page.width, doc.page.height).fill('#f8fafc')
-        y = 42
-    }
+    nuevaPagina()
 
-    doc.fillColor('#0f172a').fontSize(15).text('Checklist de restauración', 42, y + 18)
+    doc.fillColor('#0f172a').fontSize(17).text('Detalle de tablas respaldadas', 42, y)
+    doc.fillColor('#64748b').fontSize(10).text(
+        'Cada bloque muestra el nombre de la tabla, su cantidad de registros, sus columnas principales y una muestra breve de datos. Las contraseñas y hashes se omiten del reporte visual.',
+        42,
+        y + 24,
+        { width: 510, lineGap: 3 }
+    )
+    y += 72
+
+    resumenTablas.forEach((item, index) => {
+        const columnas = item.columnas.slice(0, 8)
+        const altoBase = 96
+        const altoRegistros = item.registros.length ? item.registros.length * 42 : 24
+        asegurarEspacio(altoBase + altoRegistros)
+
+        doc.roundedRect(42, y, 510, altoBase + altoRegistros - 8, 8).fill('#ffffff').stroke('#e2e8f0')
+        doc.rect(42, y, 6, altoBase + altoRegistros - 8).fill(index % 2 === 0 ? '#10b981' : '#2563eb')
+        doc.fillColor('#0f172a').fontSize(14).text(item.tabla, 60, y + 16)
+        doc.fillColor('#047857').fontSize(10).text(`${item.total} registros`, 430, y + 17, { width: 90, align: 'right' })
+        doc.fillColor('#64748b').fontSize(8).text('COLUMNAS PRINCIPALES', 60, y + 42)
+        doc.fillColor('#334155').fontSize(8).text(columnas.join('  |  ') || 'Sin columnas detectadas', 60, y + 56, { width: 470, height: 24 })
+
+        let filaY = y + 88
+        if (!item.registros.length) {
+            doc.fillColor('#94a3b8').fontSize(9).text('Sin registros para mostrar.', 60, filaY)
+        } else {
+            item.registros.forEach((registro, filaIndex) => {
+                const contenido = Object.entries(registro)
+                    .slice(0, 4)
+                    .map(([columna, valor]) => `${columna}: ${textoSeguro(valor, 36)}`)
+                    .join('   ')
+                doc.roundedRect(60, filaY, 472, 28, 5).fill(filaIndex % 2 === 0 ? '#f8fafc' : '#f1f5f9')
+                doc.fillColor('#334155').fontSize(8).text(contenido, 72, filaY + 8, { width: 448, height: 12 })
+                filaY += 38
+            })
+        }
+
+        y += altoBase + altoRegistros + 12
+    })
+
+    asegurarEspacio(364)
+    doc.fillColor('#0f172a').fontSize(15).text('Checklist de restauración', 42, y + 10)
     const checks = [
         'Verificar que el archivo SQL corresponda a la fecha requerida.',
         'Restaurar primero en una base de prueba.',
@@ -301,12 +394,12 @@ const generarPdfRespaldo = async ({ nombreArchivo, resumenTablas, contenidoSql }
     ]
 
     checks.forEach((check, index) => {
-        const checkY = y + 50 + (index * 24)
+        const checkY = y + 42 + (index * 24)
         doc.circle(50, checkY + 6, 4).fill('#10b981')
         doc.fillColor('#334155').fontSize(9).text(check, 64, checkY)
     })
 
-    const previewY = y + 162
+    const previewY = y + 150
     doc.fillColor('#0f172a').fontSize(15).text('Vista previa SQL', 42, previewY)
     doc.roundedRect(42, previewY + 30, 510, 154, 6).fill('#020617')
     doc.fillColor('#d1fae5').fontSize(8).text(
