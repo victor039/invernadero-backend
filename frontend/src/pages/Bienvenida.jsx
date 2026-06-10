@@ -1,7 +1,9 @@
 import { Link } from 'react-router-dom'
-import { FaBoxOpen, FaCashRegister, FaChartLine, FaLeaf, FaSeedling, FaUserShield } from 'react-icons/fa'
+import { FaBoxOpen, FaCashRegister, FaChartLine, FaLeaf, FaUserShield } from 'react-icons/fa'
 
 import DashboardLayout from '../layouts/DashboardLayout'
+
+const logoPath = '/naturaleza-viva-logo.svg'
 
 function Bienvenida() {
     const usuario = JSON.parse(localStorage.getItem('usuario') || '{}')
@@ -84,8 +86,8 @@ function Bienvenida() {
                     </div>
 
                     <div className="rounded-lg border border-white/10 bg-white/5 p-4 sm:p-5">
-                        <div className={`flex h-14 w-14 items-center justify-center rounded-md text-2xl ${acento.icono}`}>
-                            <FaSeedling />
+                        <div className={`flex h-14 w-14 items-center justify-center overflow-hidden rounded-md ${acento.icono}`}>
+                            <img src={logoPath} alt="Naturaleza Viva" className="h-full w-full object-cover" />
                         </div>
                         <p className={`mt-5 text-sm font-bold uppercase tracking-[0.2em] ${acento.texto}`}>
                             Invernadero

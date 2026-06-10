@@ -6,11 +6,16 @@ html {
 
 body {
     background:
-        radial-gradient(circle at top left, rgba(16, 185, 129, 0.08), transparent 34rem),
+        radial-gradient(circle at top left, rgba(16, 185, 129, 0.09), transparent 34rem),
         radial-gradient(circle at top right, rgba(14, 165, 233, 0.08), transparent 32rem),
-        #f1f5f9;
+        linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
     color: #0f172a;
     text-rendering: geometricPrecision;
+    background-attachment: fixed;
+}
+
+#root {
+    min-height: 100vh;
 }
 
 button,

@@ -10,6 +10,8 @@ const formatoMoneda = new Intl.NumberFormat('es-MX', {
     currency: 'MXN'
 })
 
+const logoPath = '/naturaleza-viva-logo.svg'
+
 function Dashboard() {
     const usuario = JSON.parse(localStorage.getItem('usuario') || '{}')
     const esAdmin = Number(usuario.id_rol) === 1
@@ -133,12 +135,19 @@ function Dashboard() {
                         </p>
                     </div>
                     <div className="rounded-lg border border-white/10 bg-white/5 p-5">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                            {esAdmin ? 'Ganancia acumulada' : 'Actividad de hoy'}
-                        </p>
-                        <p className="mt-3 text-3xl font-bold text-emerald-300">
-                            {esAdmin ? formatoMoneda.format(Number(resumen.ganancias || 0)) : `${resumen.ventasHoy} ventas`}
-                        </p>
+                        <div className="flex items-center gap-3">
+                            <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-md bg-white/10 ring-1 ring-white/10">
+                                <img src={logoPath} alt="Naturaleza Viva" className="h-full w-full object-cover" />
+                            </div>
+                            <div>
+                                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                                    {esAdmin ? 'Ganancia acumulada' : 'Actividad de hoy'}
+                                </p>
+                                <p className="mt-1 text-3xl font-bold text-emerald-300">
+                                    {esAdmin ? formatoMoneda.format(Number(resumen.ganancias || 0)) : `${resumen.ventasHoy} ventas`}
+                                </p>
+                            </div>
+                        </div>
                         <div className="mt-5 h-2 rounded-full bg-white/10">
                             <div className="h-2 w-3/4 rounded-full bg-emerald-400" />
                         </div>

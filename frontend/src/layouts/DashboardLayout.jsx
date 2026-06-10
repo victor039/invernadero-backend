@@ -578,8 +578,12 @@ function DashboardLayout({ children }) {
                     </div>
                 </div>
 
-                <main className="page-enter min-h-screen p-4 sm:p-5 lg:p-8">
-                    {children}
+                <main className="page-enter relative min-h-screen overflow-hidden p-4 sm:p-5 lg:p-8">
+                    <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(rgba(15,23,42,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(15,23,42,0.03)_1px,transparent_1px)] bg-[size:42px_42px] opacity-60" />
+                    <div className="pointer-events-none absolute inset-x-4 top-4 h-px bg-gradient-to-r from-transparent via-emerald-400/40 to-transparent sm:inset-x-6 lg:inset-x-8" />
+                    <div className="relative">
+                        {children}
+                    </div>
                 </main>
             </div>
 
