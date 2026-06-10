@@ -53,29 +53,29 @@ function Bienvenida() {
     return (
         <DashboardLayout>
             <section className="overflow-hidden rounded-xl border border-slate-800 bg-slate-950 shadow-xl shadow-slate-950/10">
-                <div className="grid gap-8 p-6 text-white lg:grid-cols-[1.15fr_0.85fr] lg:p-8">
+                <div className="grid gap-6 p-4 text-white sm:p-6 lg:grid-cols-[1.15fr_0.85fr] lg:p-8">
                     <div>
                         <div className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wide ${acento.suave}`}>
                             <FaUserShield />
                             {esAdmin ? 'Acceso administrativo' : 'Acceso de empleado'}
                         </div>
-                        <h1 className="mt-5 text-4xl font-bold leading-tight lg:text-5xl">
+                        <h1 className="mt-4 text-3xl font-bold leading-tight sm:text-4xl lg:text-5xl">
                             Bienvenido, {nombre}
                         </h1>
-                        <p className="mt-4 max-w-2xl text-lg leading-8 text-slate-300">
+                        <p className="mt-4 max-w-2xl text-base leading-7 text-slate-300 sm:text-lg sm:leading-8">
                             Elige por dónde quieres empezar. Esta pantalla te deja entrar con calma al sistema antes de ir a los módulos de trabajo.
                         </p>
-                        <div className="mt-6 flex flex-wrap gap-3">
+                        <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
                             <Link
                                 to="/ventas"
-                                className={`inline-flex h-12 items-center gap-2 rounded-md px-5 text-sm font-bold transition ${acento.boton}`}
+                                className={`inline-flex h-12 items-center justify-center gap-2 rounded-md px-5 text-sm font-bold transition ${acento.boton}`}
                             >
                                 <FaCashRegister />
                                 Nueva venta
                             </Link>
                             <Link
                                 to="/dashboard"
-                                className="inline-flex h-12 items-center gap-2 rounded-md border border-white/15 bg-white/10 px-5 text-sm font-bold text-white transition hover:bg-white/15"
+                                className="inline-flex h-12 items-center justify-center gap-2 rounded-md border border-white/15 bg-white/10 px-5 text-sm font-bold text-white transition hover:bg-white/15"
                             >
                                 <FaChartLine />
                                 Ver dashboard
@@ -83,17 +83,17 @@ function Bienvenida() {
                         </div>
                     </div>
 
-                    <div className="rounded-lg border border-white/10 bg-white/5 p-5">
+                    <div className="rounded-lg border border-white/10 bg-white/5 p-4 sm:p-5">
                         <div className={`flex h-14 w-14 items-center justify-center rounded-md text-2xl ${acento.icono}`}>
                             <FaSeedling />
                         </div>
                         <p className={`mt-5 text-sm font-bold uppercase tracking-[0.2em] ${acento.texto}`}>
                             Invernadero
                         </p>
-                        <h2 className="mt-2 text-2xl font-bold">
+                        <h2 className="mt-2 text-xl font-bold sm:text-2xl">
                             {esAdmin ? 'Control general listo' : 'Turno operativo listo'}
                         </h2>
-                        <p className="mt-3 leading-7 text-slate-300">
+                        <p className="mt-3 text-sm leading-7 text-slate-300 sm:text-base">
                             {esAdmin
                                 ? 'Puedes revisar indicadores, empleados, inventario, clientes y respaldos desde el menú lateral.'
                                 : 'Puedes registrar ventas, consultar inventario y revisar reportes disponibles para tu rol.'}

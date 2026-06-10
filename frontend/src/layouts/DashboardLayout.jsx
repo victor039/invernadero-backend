@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
-import { FaBell, FaBoxOpen, FaBriefcase, FaCashRegister, FaChartLine, FaCheckDouble, FaChevronRight, FaCrown, FaDatabase, FaHandHoldingUsd, FaHeadset, FaHome, FaLeaf, FaPowerOff, FaRocket, FaSave, FaSeedling, FaShieldAlt, FaShippingFast, FaStar, FaTimes, FaUserAstronaut, FaUserCog, FaUserFriends, FaUserTie, FaUsers } from 'react-icons/fa'
+import { FaBars, FaBell, FaBoxOpen, FaBriefcase, FaCashRegister, FaChartLine, FaCheckDouble, FaChevronRight, FaCrown, FaDatabase, FaHandHoldingUsd, FaHeadset, FaHome, FaLeaf, FaPowerOff, FaRocket, FaSave, FaSeedling, FaShieldAlt, FaShippingFast, FaStar, FaTimes, FaUserAstronaut, FaUserCog, FaUserFriends, FaUserTie, FaUsers } from 'react-icons/fa'
 import Swal from 'sweetalert2'
 import { guardarPerfilLocal } from '../utils/perfilLocal'
 import api from '../services/api'
@@ -68,6 +68,7 @@ function DashboardLayout({ children }) {
     const [ventaDetalle, setVentaDetalle] = useState(null)
     const [ventasEmpleado, setVentasEmpleado] = useState([])
     const [guardandoPerfil, setGuardandoPerfil] = useState(false)
+    const [menuMovilAbierto, setMenuMovilAbierto] = useState(false)
     const [ultimaVentaVista, setUltimaVentaVista] = useState(() => Number(localStorage.getItem(`ventas_vistas_admin_${usuario.id_empleado}`) || 0))
     const sidebarNavRef = useRef(null)
     const sidebarScrollInicial = useRef(Number(sessionStorage.getItem(SIDEBAR_SCROLL_KEY) || 0))
@@ -265,6 +266,22 @@ function DashboardLayout({ children }) {
         }
     }, [notificacionesAbiertas])
 
+    useEffect(() => {
+        setMenuMovilAbierto(false)
+    }, [location.pathname])
+
+    useEffect(() => {
+        if (!menuMovilAbierto) return undefined
+
+        const cerrarConEscape = (event) => {
+            if (event.key === 'Escape') setMenuMovilAbierto(false)
+        }
+
+        window.addEventListener('keydown', cerrarConEscape)
+
+        return () => window.removeEventListener('keydown', cerrarConEscape)
+    }, [menuMovilAbierto])
+
     const asignarSidebarNav = (node) => {
         sidebarNavRef.current = node
 
@@ -354,7 +371,7 @@ function DashboardLayout({ children }) {
         }
 
     return (
-        <div className="min-h-screen bg-slate-100 text-slate-900">
+        <div className="min-h-screen overflow-x-hidden bg-slate-100 text-slate-900">
             <aside className="fixed inset-y-0 left-0 z-20 hidden w-72 overflow-hidden border-r border-slate-800 bg-slate-950 px-5 py-6 text-white lg:flex lg:flex-col">
                 <div className="flex items-center gap-3 border-b border-white/10 pb-6">
                     <div className={`flex h-11 w-11 items-center justify-center rounded-md ${tema.logo}`}>
@@ -420,46 +437,35 @@ function DashboardLayout({ children }) {
             </aside>
 
             <div className="lg:pl-72">
-                <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/90 px-5 py-4 backdrop-blur lg:hidden">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <div className={`flex h-10 w-10 items-center justify-center rounded-md ${tema.logoMovil}`}>
-                                <FaSeedling />
+                <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/90 px-4 py-3 backdrop-blur sm:px-5 lg:hidden">
+                    <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                            <div className="flex items-center gap-3">
+                                <div className={`flex h-10 w-10 items-center justify-center rounded-md ${tema.logoMovil}`}>
+                                    <FaSeedling />
+                                </div>
+                                <div className="min-w-0">
+                                    <p className="truncate font-bold">Invernadero</p>
+                                    <p className="truncate text-xs text-slate-500">{tema.panel}</p>
+                                </div>
                             </div>
-                            <div>
-                                <p className="font-bold">Invernadero</p>
-                                <p className="text-xs text-slate-500">{tema.panel}</p>
-                            </div>
+                            <p className={`mt-2 text-xs font-bold uppercase tracking-[0.18em] ${tema.modulo}`}>
+                                {moduloActivo.label}
+                            </p>
                         </div>
 
-                        <button
-                            onClick={logout}
-                            className="rounded-md bg-slate-900 p-3 text-white"
-                            aria-label="Cerrar sesión"
-                            title="Cerrar sesión"
-                        >
-                            <FaPowerOff />
-                        </button>
-                    </div>
-
-                    <nav className="mt-4 grid grid-cols-3 gap-2">
-                        {links.map(({ to, label, icon: Icon }) => (
-                            <NavLink
-                                key={to}
-                                to={to}
-                                className={({ isActive }) =>
-                                    `flex min-h-16 flex-col items-center justify-center gap-1 rounded-md text-xs font-semibold ${
-                                        isActive
-                                            ? tema.activoMovil
-                                            : 'bg-slate-100 text-slate-600'
-                                    }`
-                                }
+                        <div className="flex items-center gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setMenuMovilAbierto(true)}
+                                className={`flex h-11 w-11 items-center justify-center rounded-md text-white shadow-sm ${tema.logoMovil}`}
+                                aria-label="Abrir menú"
+                                title="Abrir menú"
                             >
-                                <Icon />
-                                {label}
-                            </NavLink>
-                        ))}
-                    </nav>
+                                <FaBars />
+                            </button>
+                        </div>
+                    </div>
                 </header>
 
                 <div className="relative z-30 hidden border-b border-slate-200 bg-white/85 px-8 py-4 backdrop-blur lg:block">
@@ -571,10 +577,119 @@ function DashboardLayout({ children }) {
                     </div>
                 </div>
 
-                <main className="page-enter min-h-screen p-5 lg:p-8">
+                <main className="page-enter min-h-screen p-4 sm:p-5 lg:p-8">
                     {children}
                 </main>
             </div>
+
+            {menuMovilAbierto && (
+                <div className="fixed inset-0 z-40 bg-slate-950/70 lg:hidden" onClick={() => setMenuMovilAbierto(false)}>
+                    <aside
+                        className="ml-auto flex h-full w-[min(100%,22rem)] flex-col overflow-hidden bg-slate-950 text-white shadow-2xl"
+                        onClick={(event) => event.stopPropagation()}
+                    >
+                        <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+                            <div className="flex items-center gap-3">
+                                <div className={`flex h-10 w-10 items-center justify-center rounded-md ${tema.logo}`}>
+                                    <FaSeedling />
+                                </div>
+                                <div>
+                                    <p className="font-bold">Invernadero</p>
+                                    <p className="text-xs text-slate-400">{tema.panel}</p>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setMenuMovilAbierto(false)}
+                                className="rounded-md bg-white/10 p-2 text-white"
+                                aria-label="Cerrar menú"
+                                title="Cerrar"
+                            >
+                                <FaTimes />
+                            </button>
+                        </div>
+
+                        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4">
+                            <div className="rounded-lg border border-white/10 bg-white/5 p-4">
+                                <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Sesión activa</p>
+                                <div className="mt-3 flex items-center gap-3">
+                                    <AvatarPerfil
+                                        foto={usuario.foto}
+                                        idRol={usuario.id_rol}
+                                        nombre={usuario.nombre || 'Perfil'}
+                                        className={`h-12 w-12 ring-2 transition ${tema.avatar}`}
+                                    />
+                                    <div className="min-w-0">
+                                        <p className="truncate font-semibold">{`${usuario.nombre || usuario.usuario || 'Administrador'} ${usuario.apellido || ''}`.trim()}</p>
+                                        <p className="truncate text-sm text-slate-400">{usuario.correo || 'Acceso interno'}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {esAdmin && (
+                                <div className="rounded-lg border border-white/10 bg-white/5 p-4">
+                                    <div className="flex items-center justify-between gap-3">
+                                        <div>
+                                            <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Movimientos recientes</p>
+                                            <p className="mt-1 text-lg font-bold text-white">{ventasNuevas.length} nuevas</p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setMenuMovilAbierto(false)
+                                                navigate('/ventas')
+                                            }}
+                                            className="rounded-md bg-white/10 px-3 py-2 text-xs font-bold text-white hover:bg-white/15"
+                                        >
+                                            Ver ventas
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            <nav className="grid grid-cols-1 gap-2">
+                                {links.map(({ to, label, icon: Icon }) => (
+                                    <NavLink
+                                        key={to}
+                                        to={to}
+                                        onClick={() => setMenuMovilAbierto(false)}
+                                        className={({ isActive }) =>
+                                            `flex items-center gap-3 rounded-md px-4 py-3 text-sm font-semibold transition ${
+                                                isActive
+                                                    ? tema.activoMovil
+                                                    : 'bg-white/5 text-slate-200 hover:bg-white/10 hover:text-white'
+                                            }`
+                                        }
+                                    >
+                                        <Icon />
+                                        {label}
+                                    </NavLink>
+                                ))}
+                            </nav>
+
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setMenuMovilAbierto(false)
+                                    abrirPerfil()
+                                }}
+                                className={`rounded-md border px-4 py-3 text-left text-sm font-bold ${tema.botonSuave}`}
+                            >
+                                Editar perfil
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={logout}
+                                className="mt-auto flex items-center justify-center gap-2 rounded-md bg-red-600 px-4 py-3 text-sm font-bold text-white hover:bg-red-700"
+                            >
+                                <FaPowerOff />
+                                Cerrar sesión
+                            </button>
+                        </div>
+                    </aside>
+                </div>
+            )}
 
             {perfilAbierto && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4">
