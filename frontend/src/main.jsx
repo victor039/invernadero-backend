@@ -10,7 +10,7 @@ import App from './App'
 import './index.css'
 
 if ('scrollRestoration' in window.history) {
-window.history.scrollRestoration = 'manual'
+  window.history.scrollRestoration = 'manual'
 }
 
 window.scrollTo(0, 0)
@@ -19,7 +19,10 @@ registerSW({
   immediate: true
 })
 
-ReactDOM.createRoot(document.getElementById('root')).render(
+const splash = document.getElementById('boot-splash')
+const root = ReactDOM.createRoot(document.getElementById('root'))
+
+root.render(
 
   <React.StrictMode>
 
@@ -32,3 +35,9 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   </React.StrictMode>
 
 )
+
+window.requestAnimationFrame(() => {
+  if (!splash) return
+  splash.classList.add('boot-splash--hidden')
+  window.setTimeout(() => splash.remove(), 320)
+})

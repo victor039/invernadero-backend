@@ -27,6 +27,7 @@ import Proveedores from './pages/Proveedores'
 import Respaldo from './pages/Respaldo'
 
 import NotFound from './pages/NotFound'
+import ConnectivityBanner from './components/ConnectivityBanner'
 
 function ScrollToTop() {
   const { pathname } = useLocation()
@@ -52,6 +53,7 @@ function App() {
     <>
 
     <ScrollToTop />
+    <ConnectivityBanner />
 
     <Routes>
 
