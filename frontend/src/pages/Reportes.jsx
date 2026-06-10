@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { FaBoxOpen, FaChartBar, FaDownload, FaExclamationTriangle, FaLeaf, FaReceipt, FaTimes, FaTrophy } from 'react-icons/fa'
+import { FaBoxOpen, FaChartBar, FaExclamationTriangle, FaLeaf, FaReceipt, FaTrophy } from 'react-icons/fa'
 import {
     Bar,
     BarChart,
@@ -30,9 +30,6 @@ const obtenerNombreProducto = (producto) => (
 
 function Reportes() {
     const [productos, setProductos] = useState([])
-    const [filtroTemporal, setFiltroTemporal] = useState('mes')
-    const [filtroAplicado, setFiltroAplicado] = useState('mes')
-    const [stockModalAbierto, setStockModalAbierto] = useState(false)
     const [resumen, setResumen] = useState({
         totalPlantas: 0,
         totalVentas: 0,
@@ -43,12 +40,11 @@ function Reportes() {
     useEffect(() => {
         obtenerResumen()
         obtenerProductos()
-    }, [filtroAplicado])
+    }, [])
 
     const obtenerResumen = async () => {
         const token = localStorage.getItem('token')
         const response = await api.get('/reportes/resumen', {
-            params: { periodo: filtroAplicado },
             headers: { Authorization: `Bearer ${token}` }
         })
         setResumen(response.data)
@@ -58,7 +54,6 @@ function Reportes() {
         const token = localStorage.getItem('token')
         const [productosResponse, plantasResponse] = await Promise.all([
             api.get('/reportes/productos-mas-vendidos', {
-                params: { periodo: filtroAplicado },
                 headers: { Authorization: `Bearer ${token}` }
             }),
             api.get('/plantas')
@@ -93,11 +88,6 @@ function Reportes() {
         })),
         [productos]
     )
-    const etiquetaFiltro = {
-        dia: 'Día',
-        semana: 'Semana',
-        mes: 'Mes'
-    }[filtroAplicado]
 
     const productoLider = productos[0]
     const unidadesVendidas = productos.reduce((total, producto) => total + Number(producto.total_vendido || 0), 0)
@@ -106,27 +96,6 @@ function Reportes() {
         ? Math.round((Number(productoLider.total_vendido || 0) / unidadesVendidas) * 100)
         : 0
     const imagenProducto = (producto) => producto?.imagen ? `${API_ORIGIN}/uploads/${producto.imagen}` : null
-    const descargarCsv = () => {
-        const filas = [
-            ['Filtro', etiquetaFiltro],
-            ['Producto', 'ID planta', 'Unidades vendidas', 'Ingresos', 'Stock'],
-            ...productos.map((producto) => [
-                obtenerNombreProducto(producto),
-                producto.id_planta,
-                producto.total_vendido,
-                Number(producto.total_ingresos || 0).toFixed(2),
-                producto.stock
-            ])
-        ]
-        const csv = filas.map((fila) => fila.map((valor) => `"${String(valor).replace(/"/g, '""')}"`).join(',')).join('\n')
-        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-        const url = URL.createObjectURL(blob)
-        const enlace = document.createElement('a')
-        enlace.href = url
-        enlace.download = `reporte_${filtroAplicado}_${new Date().toISOString().slice(0, 10)}.csv`
-        enlace.click()
-        URL.revokeObjectURL(url)
-    }
 
     const tooltipProductos = ({ active, payload }) => {
         if (!active || !payload?.length) return null
@@ -200,36 +169,6 @@ function Reportes() {
                 <div className="h-2 bg-gradient-to-r from-emerald-500 via-cyan-500 to-violet-600" />
             </section>
 
-            <section className="mb-6 flex flex-col justify-between gap-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm md:flex-row md:items-center">
-                <div>
-                    <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">Filtros</p>
-                    <h2 className="text-lg font-bold text-slate-950">Periodo de análisis: {etiquetaFiltro}</h2>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                    {[
-                        ['dia', 'Día'],
-                        ['semana', 'Semana'],
-                        ['mes', 'Mes']
-                    ].map(([valor, label]) => (
-                        <button
-                            key={valor}
-                            type="button"
-                            onClick={() => setFiltroTemporal(valor)}
-                            className={`h-10 rounded-md px-4 text-sm font-bold transition ${filtroTemporal === valor ? 'bg-slate-950 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-                        >
-                            {label}
-                        </button>
-                    ))}
-                    <button type="button" onClick={() => setFiltroAplicado(filtroTemporal)} className="h-10 rounded-md bg-emerald-700 px-4 text-sm font-bold text-white hover:bg-emerald-800">
-                        Aplicar filtros
-                    </button>
-                    <button type="button" onClick={descargarCsv} className="inline-flex h-10 items-center gap-2 rounded-md bg-blue-700 px-4 text-sm font-bold text-white hover:bg-blue-800">
-                        <FaDownload />
-                        CSV
-                    </button>
-                </div>
-            </section>
-
             <section className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
                 <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
                     <FaReceipt className="text-blue-700" />
@@ -246,11 +185,11 @@ function Reportes() {
                     <p className="mt-4 text-sm font-semibold text-slate-500">Ingresos</p>
                     <p className="mt-2 text-3xl font-bold text-emerald-700">{formatoMoneda.format(Number(resumen.ganancias || 0))}</p>
                 </div>
-                <button type="button" onClick={() => setStockModalAbierto(true)} className="rounded-lg border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:-translate-y-1 hover:border-red-200 hover:bg-red-50/50 hover:shadow-lg">
+                <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
                     <FaExclamationTriangle className="text-red-700" />
                     <p className="mt-4 text-sm font-semibold text-slate-500">Stock bajo</p>
                     <p className="mt-2 text-3xl font-bold text-red-700">{resumen.stockBajo.length}</p>
-                </button>
+                </div>
                 <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
                     <FaLeaf className="text-teal-700" />
                     <p className="mt-4 text-sm font-semibold text-slate-500">Unidades vendidas</p>
@@ -333,7 +272,7 @@ function Reportes() {
                                     />
                                 </div>
                                 <p className="mt-2 text-xs font-semibold text-slate-500">
-                                    <span className="break-words">{formatoMoneda.format(Number(producto.total_ingresos || 0))}</span> en ventas · stock {producto.stock}
+                                    {formatoMoneda.format(Number(producto.total_ingresos || 0))} en ventas · stock {producto.stock}
                                 </p>
                             </div>
                         ))}
@@ -360,34 +299,6 @@ function Reportes() {
                 </div>
                 </div>
             </section>
-            {stockModalAbierto && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4" onClick={() => setStockModalAbierto(false)}>
-                    <div className="w-full max-w-2xl overflow-hidden rounded-xl bg-white shadow-2xl" onClick={(event) => event.stopPropagation()}>
-                        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
-                            <div>
-                                <h2 className="text-xl font-bold text-slate-950">Plantas con stock bajo</h2>
-                                <p className="text-sm text-slate-500">Revisa qué productos necesitan atención.</p>
-                            </div>
-                            <button type="button" onClick={() => setStockModalAbierto(false)} className="rounded-md bg-slate-100 p-2 text-slate-600 hover:bg-slate-200" aria-label="Cerrar">
-                                <FaTimes />
-                            </button>
-                        </div>
-                        <div className="max-h-[70vh] overflow-y-auto p-5">
-                            {resumen.stockBajo.length === 0 ? (
-                                <p className="text-sm text-slate-500">No hay plantas con stock bajo.</p>
-                            ) : resumen.stockBajo.map((planta) => (
-                                <div key={planta.id_planta} className="mb-3 flex items-center justify-between rounded-lg border border-red-100 bg-red-50 p-4 last:mb-0">
-                                    <div>
-                                        <p className="font-bold text-slate-950">{planta.nombre_comun}</p>
-                                        <p className="text-sm text-slate-500">{planta.nombre_cientifico || 'Sin nombre científico'}</p>
-                                    </div>
-                                    <span className="rounded-md bg-red-600 px-3 py-1 text-sm font-bold text-white">{planta.stock}</span>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            )}
         </DashboardLayout>
     )
 }

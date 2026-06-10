@@ -25,16 +25,6 @@ const formatearFechaArchivo = () => {
         .slice(0, 19)
 }
 
-const formatearFechaCarpeta = () => new Date().toISOString().slice(0, 10)
-
-const prepararCarpetaTemporalFecha = async () => {
-    const carpetaFecha = path.join(carpetaRespaldos, 'temporales', formatearFechaCarpeta())
-
-    await fs.promises.mkdir(carpetaFecha, { recursive: true })
-
-    return carpetaFecha
-}
-
 const escaparValorSql = (valor, dialect = obtenerDialect()) => {
     if (valor === null || valor === undefined) return 'NULL'
     if (typeof valor === 'number') return Number.isFinite(valor) ? String(valor) : 'NULL'
@@ -242,36 +232,6 @@ const obtenerResumenTablas = async () => {
     return resumen
 }
 
-const generarContenidoCsv = async () => {
-    const queryInterface = sequelize.getQueryInterface()
-    const tablas = ordenarTablasParaImportacion(await queryInterface.showAllTables())
-    const dialect = obtenerDialect()
-    const lineas = [
-        ['tabla', 'registros', 'columnas', 'muestra'].join(',')
-    ]
-
-    for (const tabla of tablas) {
-        const nombreTabla = typeof tabla === 'string' ? tabla : tabla.tableName
-        const tablaSql = entreComillas(nombreTabla, dialect)
-        const [resultado] = await sequelize.query(`SELECT COUNT(*) AS total FROM ${tablaSql}`)
-        const [muestras] = await sequelize.query(`SELECT * FROM ${tablaSql} LIMIT 1`)
-        const total = Number(resultado[0]?.total || resultado[0]?.count || 0)
-        const columnas = muestras[0]
-            ? Object.keys(muestras[0]).filter((columna) => !['contraseña', 'password_hash', 'password'].includes(columna))
-            : Object.keys(obtenerModeloPorTabla(nombreTabla)?.rawAttributes || {})
-        const muestra = muestras[0]
-            ? columnas.slice(0, 4).map((columna) => `${columna}: ${String(muestras[0][columna] ?? 'Sin dato').replace(/\s+/g, ' ')}`).join(' | ')
-            : 'Sin registros'
-        const fila = [nombreTabla, total, columnas.join(' | '), muestra]
-            .map((valor) => `"${String(valor).replace(/"/g, '""')}"`)
-            .join(',')
-
-        lineas.push(fila)
-    }
-
-    return lineas.join('\n')
-}
-
 const generarPdfRespaldo = async ({ nombreArchivo, resumenTablas, contenidoSql }) => new Promise((resolve, reject) => {
     const doc = new PDFDocument({
         size: 'A4',
@@ -470,11 +430,11 @@ exports.generarRespaldo = async (req, res) => {
             return res.status(403).json({ mensaje: 'No autorizado' })
         }
 
-        const carpetaFecha = await prepararCarpetaTemporalFecha()
+        await fs.promises.mkdir(carpetaRespaldos, { recursive: true })
 
         const formato = req.query.formato === 'postgres' ? 'postgres' : obtenerDialect()
         const nombreArchivo = `respaldo_${formato}_${process.env.DB_NAME || 'database'}_${formatearFechaArchivo()}.sql`
-        const rutaArchivo = path.join(carpetaFecha, nombreArchivo)
+        const rutaArchivo = path.join(carpetaRespaldos, nombreArchivo)
         const contenido = await generarContenidoRespaldo(formato)
 
         await fs.promises.writeFile(rutaArchivo, contenido, 'utf8')
@@ -489,31 +449,6 @@ exports.generarRespaldo = async (req, res) => {
     }
 }
 
-exports.generarRespaldoCsv = async (req, res) => {
-    try {
-        if (Number(req.usuario.id_rol) !== 1) {
-            return res.status(403).json({ mensaje: 'No autorizado' })
-        }
-
-        const carpetaFecha = await prepararCarpetaTemporalFecha()
-
-        const nombreArchivo = `resumen_respaldo_${process.env.DB_NAME || 'database'}_${formatearFechaArchivo()}.csv`
-        const rutaArchivo = path.join(carpetaFecha, nombreArchivo)
-        const contenido = await generarContenidoCsv()
-
-        await fs.promises.writeFile(rutaArchivo, contenido, 'utf8')
-
-        res.setHeader('Content-Type', 'text/csv; charset=utf-8')
-        res.download(rutaArchivo, nombreArchivo)
-    } catch (error) {
-        console.error('Error al generar CSV de respaldo:', error)
-
-        res.status(500).json({
-            mensaje: 'Error al generar CSV de respaldo'
-        })
-    }
-}
-
 exports.generarRespaldoPdf = async (req, res) => {
     try {
         if (Number(req.usuario.id_rol) !== 1) {
@@ -523,15 +458,11 @@ exports.generarRespaldoPdf = async (req, res) => {
         const nombreArchivo = `reporte_respaldo_${process.env.DB_NAME || 'database'}_${formatearFechaArchivo()}.pdf`
         const resumenTablas = await obtenerResumenTablas()
         const contenidoSql = await generarContenidoRespaldo(obtenerDialect())
-        const carpetaFecha = await prepararCarpetaTemporalFecha()
-        const rutaArchivo = path.join(carpetaFecha, nombreArchivo)
         const pdfBuffer = await generarPdfRespaldo({
             nombreArchivo,
             resumenTablas,
             contenidoSql
         })
-
-        await fs.promises.writeFile(rutaArchivo, pdfBuffer)
 
         res.setHeader('Content-Type', 'application/pdf')
         res.setHeader('Content-Disposition', `attachment; filename="${nombreArchivo}"`)

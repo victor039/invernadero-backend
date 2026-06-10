@@ -143,8 +143,6 @@ function Clientes() {
         const texto = `${cliente.nombre} ${cliente.apellido} ${cliente.correo} ${cliente.telefono}`.toLowerCase()
         return texto.includes(busqueda.toLowerCase())
     })
-    const clientesFrecuentes = clientes.filter((cliente) => Number(cliente.total_compras || cliente.compras || 0) >= 3).length
-    const clientesMayoristas = clientes.filter((cliente) => /mayorista|empresa|negocio/i.test(`${cliente.direccion || ''} ${cliente.nombre || ''}`)).length
 
     return (
         <DashboardLayout>
@@ -170,13 +168,13 @@ function Clientes() {
                 </div>
                 <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
                     <FaEnvelope className="text-blue-700" />
-                    <p className="mt-4 text-sm font-semibold text-slate-500">Clientes frecuentes</p>
-                    <p className="mt-2 text-3xl font-bold text-slate-950">{clientesFrecuentes}</p>
+                    <p className="mt-4 text-sm font-semibold text-slate-500">Con correo</p>
+                    <p className="mt-2 text-3xl font-bold text-slate-950">{clientes.filter((cliente) => cliente.correo).length}</p>
                 </div>
                 <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
                     <FaPhoneAlt className="text-emerald-700" />
-                    <p className="mt-4 text-sm font-semibold text-slate-500">Clientes mayoristas</p>
-                    <p className="mt-2 text-3xl font-bold text-slate-950">{clientesMayoristas}</p>
+                    <p className="mt-4 text-sm font-semibold text-slate-500">Con teléfono</p>
+                    <p className="mt-2 text-3xl font-bold text-slate-950">{clientes.filter((cliente) => cliente.telefono).length}</p>
                 </div>
             </section>
 

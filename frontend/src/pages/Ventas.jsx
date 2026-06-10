@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { FaCalendarAlt, FaCashRegister, FaCheckCircle, FaCreditCard, FaDownload, FaEnvelope, FaExclamationTriangle, FaExchangeAlt, FaLeaf, FaMinus, FaMoneyBillWave, FaPlus, FaPrint, FaReceipt, FaSearch, FaShoppingCart, FaTicketAlt, FaTimes, FaTrash, FaUserCheck, FaUserClock } from 'react-icons/fa'
+import { FaCalendarAlt, FaCashRegister, FaCheckCircle, FaCreditCard, FaDownload, FaEnvelope, FaExclamationTriangle, FaExchangeAlt, FaLeaf, FaMinus, FaMoneyBillWave, FaPlus, FaPrint, FaReceipt, FaSearch, FaShoppingCart, FaTicketAlt, FaTrash, FaUserCheck, FaUserClock } from 'react-icons/fa'
 import Swal from 'sweetalert2'
 
 import DashboardLayout from '../layouts/DashboardLayout'
@@ -29,7 +29,6 @@ function Ventas() {
     const [busquedaHistorial, setBusquedaHistorial] = useState('')
     const [filtroHistorial, setFiltroHistorial] = useState('hoy')
     const [ticketProcesandoId, setTicketProcesandoId] = useState(null)
-    const [productosAbiertos, setProductosAbiertos] = useState(false)
     const [entregaTicket, setEntregaTicket] = useState({
         descarga: false,
         correo: false
@@ -48,18 +47,6 @@ function Ventas() {
 
         setCorreoTicket(cliente?.correo || '')
     }, [tipoCliente, clienteSeleccionado, clientes])
-
-    useEffect(() => {
-        if (!productosAbiertos) return undefined
-
-        const cerrarConEscape = (event) => {
-            if (event.key === 'Escape') setProductosAbiertos(false)
-        }
-
-        window.addEventListener('keydown', cerrarConEscape)
-
-        return () => window.removeEventListener('keydown', cerrarConEscape)
-    }, [productosAbiertos])
 
     const obtenerPlantas = async () => {
         const response = await api.get('/plantas')
@@ -204,11 +191,13 @@ function Ventas() {
         && (tipoCliente === 'paso' ? Boolean(clientePaso.trim()) : Boolean(clienteSeleccionado))
         && Boolean(metodoPago)
         && (metodoPago === 'Efectivo' || Boolean(referenciaPago.trim()))
+        && ticketSeleccionado.length > 0
+        && (!entregaTicket.correo || Boolean(correoTicket.trim()))
     const pasosVenta = [
         { label: 'Productos', listo: carrito.length > 0 },
         { label: 'Cliente', listo: tipoCliente === 'paso' ? Boolean(clientePaso.trim()) : Boolean(clienteSeleccionado) },
         { label: 'Pago', listo: Boolean(metodoPago) && (metodoPago === 'Efectivo' || Boolean(referenciaPago.trim())) },
-        { label: 'Cobro', listo: ventaLista }
+        { label: 'Ticket', listo: ticketSeleccionado.length > 0 && (!entregaTicket.correo || Boolean(correoTicket.trim())) }
     ]
     const unidadesCarrito = carrito.reduce((acc, item) => acc + item.cantidad, 0)
 
@@ -276,6 +265,11 @@ function Ventas() {
 
         if (referenciaLimpia && !validarLongitud(referenciaLimpia, 40)) {
             Swal.fire('Referencia inválida', 'La referencia puede tener máximo 40 caracteres.', 'warning')
+            return
+        }
+
+        if (!entregaTicket.descarga && !entregaTicket.correo) {
+            Swal.fire('Entrega del ticket', 'Selecciona al menos una forma de entregar el ticket.', 'warning')
             return
         }
 
@@ -585,7 +579,7 @@ function Ventas() {
                             </div>
                             <div className="rounded-lg bg-white/10 p-3">
                                 <p className="text-white/60">Entrega</p>
-                                <p className="font-bold">{ticketSeleccionado.join(' + ') || 'Después de cobrar'}</p>
+                                <p className="font-bold">{ticketSeleccionado.join(' + ') || 'Sin ticket'}</p>
                             </div>
                         </div>
                     </div>
@@ -618,10 +612,6 @@ function Ventas() {
                         <button onClick={agregarAlCarrito} className="flex h-11 items-center justify-center gap-2 rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white hover:bg-emerald-800 sm:col-span-2">
                             <FaPlus />
                             Agregar al carrito
-                        </button>
-                        <button type="button" onClick={() => setProductosAbiertos(true)} className="flex h-11 items-center justify-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-4 text-sm font-bold text-blue-800 hover:bg-blue-100 sm:col-span-2">
-                            <FaSearch />
-                            Ver todos los productos
                         </button>
                     </div>
                     <div className="mt-5 overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
@@ -739,20 +729,13 @@ function Ventas() {
                     {metodoPago !== 'Efectivo' && (
                         <input value={referenciaPago} onChange={(e) => setReferenciaPago(e.target.value.slice(0, 40))} placeholder="Referencia, folio o autorización" maxLength={40} className="mt-4 h-11 w-full rounded-md border border-slate-300 px-3 outline-none focus:border-slate-950" />
                     )}
-                    <div className="mt-4 rounded-lg bg-slate-950 p-4 text-white">
-                        <p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-300">Monto a pagar</p>
-                        <p className="mt-1 break-words text-3xl font-bold">{formatoMoneda.format(total)}</p>
-                        <p className="mt-1 text-sm text-slate-300">
-                            El ticket se podrá descargar o enviar cuando la venta quede cobrada.
-                        </p>
-                    </div>
                 </div>
 
                 <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
                     <div className="flex items-center justify-between gap-3">
                         <div>
-                            <h2 className="text-xl font-bold text-slate-950">Ticket después del cobro</h2>
-                            <p className="text-sm text-slate-500">Opcional: elige si al cobrar también quieres descargarlo o enviarlo.</p>
+                            <h2 className="text-xl font-bold text-slate-950">Entrega del ticket</h2>
+                            <p className="text-sm text-slate-500">Elige una o varias formas de entrega.</p>
                         </div>
                         <div className="flex h-11 w-11 items-center justify-center rounded-md bg-emerald-700 text-white">
                             <FaTicketAlt />
@@ -873,7 +856,7 @@ function Ventas() {
                             <p className="font-semibold text-slate-900">Resumen de cobro</p>
                             <p className="mt-2">Productos: {carrito.length}</p>
                             <p>Pago: {metodoPago || 'Pendiente'}{referenciaPago ? ` · ${referenciaPago}` : ''}</p>
-                            <p>Ticket: {ticketSeleccionado.join(' + ') || 'Disponible después del cobro'}</p>
+                            <p>Ticket: {ticketSeleccionado.join(' + ') || 'Sin entrega'}</p>
                         </div>
                         <button onClick={realizarVenta} className={`flex h-full min-h-20 items-center justify-center gap-2 rounded-lg px-4 text-sm font-bold text-white transition ${ventaLista ? 'bg-blue-700 hover:bg-blue-800' : 'bg-slate-500 hover:bg-slate-600'}`}>
                             <FaCashRegister />
@@ -1058,70 +1041,6 @@ function Ventas() {
                     </table>
                 </div>
             </section>
-            {productosAbiertos && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4" onClick={() => setProductosAbiertos(false)}>
-                    <div className="w-full max-w-5xl overflow-hidden rounded-xl bg-white shadow-2xl" onClick={(event) => event.stopPropagation()}>
-                        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
-                            <div>
-                                <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-700">Seleccionar producto</p>
-                                <h2 className="mt-1 text-2xl font-bold text-slate-950">Catálogo disponible</h2>
-                            </div>
-                            <button type="button" onClick={() => setProductosAbiertos(false)} className="rounded-md bg-slate-100 p-2 text-slate-600 hover:bg-slate-200" aria-label="Cerrar catálogo" title="Cerrar">
-                                <FaTimes />
-                            </button>
-                        </div>
-                        <div className="max-h-[72vh] overflow-y-auto p-5">
-                            {plantas.length === 0 ? (
-                                <div className="rounded-lg border border-slate-200 bg-slate-50 p-8 text-center text-slate-500">
-                                    No hay productos cargados.
-                                </div>
-                            ) : (
-                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                                    {plantas.map((planta) => {
-                                        const sinStock = Number(planta.stock || 0) <= 0
-
-                                        return (
-                                            <button
-                                                key={planta.id_planta}
-                                                type="button"
-                                                disabled={sinStock}
-                                                onClick={() => {
-                                                    setPlantaSeleccionada(String(planta.id_planta))
-                                                    setProductosAbiertos(false)
-                                                }}
-                                                className="overflow-hidden rounded-lg border border-slate-200 bg-white text-left shadow-sm transition hover:-translate-y-1 hover:border-blue-200 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-50"
-                                            >
-                                                {planta.imagen ? (
-                                                    <img src={`${API_ORIGIN}/uploads/${planta.imagen}`} alt={planta.nombre_comun} className="h-36 w-full object-cover" />
-                                                ) : (
-                                                    <div className="flex h-36 w-full items-center justify-center bg-emerald-50 text-3xl text-emerald-700">
-                                                        <FaLeaf />
-                                                    </div>
-                                                )}
-                                                <div className="p-4">
-                                                    <div className="flex items-start justify-between gap-3">
-                                                        <div>
-                                                            <p className="font-bold text-slate-950">{planta.nombre_comun}</p>
-                                                            <p className="mt-1 text-xs text-slate-500">{planta.nombre_cientifico || 'Sin nombre científico'}</p>
-                                                        </div>
-                                                        <span className={`rounded-full px-2 py-1 text-[11px] font-bold ${sinStock ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>
-                                                            Stock {planta.stock}
-                                                        </span>
-                                                    </div>
-                                                    <p className="mt-4 text-xl font-bold text-blue-700">{formatoMoneda.format(Number(planta.precio || 0))}</p>
-                                                    <p className="mt-1 text-xs font-semibold text-slate-500">
-                                                        {sinStock ? 'Sin unidades disponibles' : 'Clic para preparar esta planta'}
-                                                    </p>
-                                                </div>
-                                            </button>
-                                        )
-                                    })}
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            )}
         </DashboardLayout>
     )
 }
