@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { FaCheckCircle, FaClipboardCheck, FaDatabase, FaDownload, FaFileAlt, FaFileCode, FaFilePdf, FaLayerGroup, FaLock, FaShieldAlt } from 'react-icons/fa'
+import { FaCheckCircle, FaClipboardCheck, FaDatabase, FaDownload, FaFileAlt, FaFileCode, FaFileCsv, FaFilePdf, FaLayerGroup, FaLock, FaShieldAlt } from 'react-icons/fa'
 import Swal from 'sweetalert2'
 
 import DashboardLayout from '../layouts/DashboardLayout'
@@ -78,6 +78,18 @@ function Respaldo() {
             url: '/respaldos/pdf',
             fallback: `reporte_respaldo_${fechaHoy}.pdf`,
             mensaje: 'El reporte PDF profesional se descargó correctamente.'
+        },
+        {
+            key: 'csv',
+            titulo: 'Resumen CSV',
+            subtitulo: 'Datos para Excel',
+            descripcion: 'Descarga un resumen tabular con tablas, conteos, columnas y muestra de información para revisión rápida.',
+            icono: FaFileCsv,
+            color: 'blue',
+            formato: 'CSV',
+            url: '/respaldos/csv',
+            fallback: `resumen_respaldo_${fechaHoy}.csv`,
+            mensaje: 'El resumen CSV se descargó correctamente.'
         }
     ]
 
@@ -99,6 +111,12 @@ function Respaldo() {
             icono: 'bg-red-600 text-white',
             boton: 'bg-red-600 hover:bg-red-700 text-white',
             chip: 'bg-red-50 text-red-700 border-red-100'
+        },
+        blue: {
+            barra: 'bg-blue-600',
+            icono: 'bg-blue-600 text-white',
+            boton: 'bg-blue-600 hover:bg-blue-700 text-white',
+            chip: 'bg-blue-50 text-blue-700 border-blue-100'
         }
     }
 
@@ -129,7 +147,7 @@ function Respaldo() {
                 <div className="h-2 bg-gradient-to-r from-emerald-500 via-cyan-500 to-blue-600" />
             </section>
 
-            <section className="grid grid-cols-1 gap-5 xl:grid-cols-3">
+            <section className="grid grid-cols-1 gap-5 xl:grid-cols-4">
                 {respaldos.map((respaldo) => {
                     const Icono = respaldo.icono
                     const estilo = estilos[respaldo.color]

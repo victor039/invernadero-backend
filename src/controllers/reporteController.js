@@ -8,15 +8,50 @@ const Empleado = require('../models/Empleado')
 
 const { Sequelize } = require('sequelize')
 
+const sequelize = require('../config/database')
+
+const obtenerRangoPeriodo = (periodo = 'mes') => {
+
+    const fin = new Date()
+    fin.setHours(23, 59, 59, 999)
+
+    const inicio = new Date(fin)
+
+    if (periodo === 'dia') {
+        inicio.setHours(0, 0, 0, 0)
+        return { inicio, fin }
+    }
+
+    if (periodo === 'semana') {
+        const dia = inicio.getDay()
+        const diferenciaLunes = dia === 0 ? 6 : dia - 1
+        inicio.setDate(inicio.getDate() - diferenciaLunes)
+        inicio.setHours(0, 0, 0, 0)
+        return { inicio, fin }
+    }
+
+    inicio.setDate(1)
+    inicio.setHours(0, 0, 0, 0)
+
+    return { inicio, fin }
+
+}
+
 exports.obtenerResumen = async (req, res) => {
 
     try {
+        const { inicio, fin } = obtenerRangoPeriodo(req.query.periodo)
+        const filtroVentas = {
+            fecha_venta: {
+                [Sequelize.Op.between]: [inicio, fin]
+            }
+        }
 
         const totalPlantas = await Planta.count()
 
-        const totalVentas = await Venta.count()
+        const totalVentas = await Venta.count({ where: filtroVentas })
 
-        const ganancias = await Venta.sum('total')
+        const ganancias = await Venta.sum('total', { where: filtroVentas })
 
         const stockBajo = await Planta.findAll({
 
@@ -134,16 +169,22 @@ exports.obtenerResumenAdmin = async (req, res) => {
 exports.productosMasVendidos = async (req, res) => {
 
     try {
+        const { inicio, fin } = obtenerRangoPeriodo(req.query.periodo)
 
-        const ventasPorPlanta = await DetalleVenta.findAll({
-            attributes: [
-                'id_planta',
-                [Sequelize.fn('SUM', Sequelize.col('cantidad')), 'total_vendido'],
-                [Sequelize.fn('SUM', Sequelize.col('subtotal')), 'total_ingresos']
-            ],
-            group: ['id_planta'],
-            order: [[Sequelize.literal('total_vendido'), 'DESC']]
-        })
+        const ventasPorPlanta = await sequelize.query(
+            `SELECT d.id_planta,
+                    SUM(d.cantidad) AS total_vendido,
+                    SUM(d.subtotal) AS total_ingresos
+             FROM detalle_ventas d
+             INNER JOIN ventas v ON v.id_venta = d.id_venta
+             WHERE v.fecha_venta BETWEEN :inicio AND :fin
+             GROUP BY d.id_planta
+             ORDER BY total_vendido DESC`,
+            {
+                replacements: { inicio, fin },
+                type: Sequelize.QueryTypes.SELECT
+            }
+        )
 
         const plantas = await Planta.findAll({
             attributes: ['id_planta', 'nombre_comun', 'nombre_cientifico', 'stock']
@@ -154,7 +195,7 @@ exports.productosMasVendidos = async (req, res) => {
         )
 
         const productos = ventasPorPlanta.map((item) => {
-            const data = item.toJSON()
+            const data = item.toJSON ? item.toJSON() : item
             const planta = plantasPorId.get(Number(data.id_planta))
 
             return {

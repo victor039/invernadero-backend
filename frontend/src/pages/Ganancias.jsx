@@ -63,12 +63,12 @@ function Ganancias() {
                 <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
                     <FaMoneyBillWave className="text-emerald-700" />
                     <p className="mt-4 text-sm font-semibold text-slate-500">Ingresos de hoy</p>
-                    <p className="mt-2 text-3xl font-bold text-slate-950">{formatoMoneda.format(Number(resumen.gananciasHoy || 0))}</p>
+                    <p className="mt-2 break-words text-2xl font-bold text-slate-950 xl:text-3xl">{formatoMoneda.format(Number(resumen.gananciasHoy || 0))}</p>
                 </div>
                 <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
                     <FaWallet className="text-blue-700" />
                     <p className="mt-4 text-sm font-semibold text-slate-500">Ingresos acumulados</p>
-                    <p className="mt-2 text-3xl font-bold text-slate-950">{formatoMoneda.format(Number(resumen.ganancias || 0))}</p>
+                    <p className="mt-2 break-words text-2xl font-bold text-slate-950 xl:text-3xl">{formatoMoneda.format(Number(resumen.ganancias || 0))}</p>
                 </div>
                 <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
                     <FaReceipt className="text-amber-700" />
@@ -78,7 +78,7 @@ function Ganancias() {
                 <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
                     <FaChartLine className={utilidad >= 0 ? 'text-emerald-700' : 'text-red-700'} />
                     <p className="mt-4 text-sm font-semibold text-slate-500">Utilidad estimada</p>
-                    <p className={`mt-2 text-3xl font-bold ${utilidad >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
+                    <p className={`mt-2 break-words text-2xl font-bold xl:text-3xl ${utilidad >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
                         {formatoMoneda.format(utilidad)}
                     </p>
                 </div>
@@ -105,7 +105,7 @@ function Ganancias() {
                                     <tr key={concepto} className="border-b transition last:border-0 hover:bg-emerald-50/50">
                                         <td className="px-3 py-4 font-semibold text-slate-900">{concepto}</td>
                                         <td className="px-3 py-4 text-slate-500">{descripcion}</td>
-                                        <td className={`px-3 py-4 text-right font-bold ${estado === 'Pérdida' ? 'text-red-700' : 'text-emerald-700'}`}>
+                                        <td className={`max-w-[180px] break-words px-3 py-4 text-right font-bold ${estado === 'Pérdida' ? 'text-red-700' : 'text-emerald-700'}`}>
                                             {formatoMoneda.format(monto)}
                                         </td>
                                         <td className="px-3 py-4 text-right">

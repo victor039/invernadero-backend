@@ -250,7 +250,6 @@ function Empleados() {
     })
     const totalAdmins = empleados.filter((empleado) => Number(empleado.id_rol) === 1).length
     const totalOperativos = empleados.filter((empleado) => Number(empleado.id_rol) !== 1).length
-    const conLogo = empleados.length
 
     return (
         <DashboardLayout>
@@ -352,10 +351,10 @@ function Empleados() {
                     </div>
                     <div className="rounded-lg border border-amber-100 bg-amber-50 p-4">
                         <div className="flex items-center justify-between">
-                            <p className="text-sm font-semibold text-amber-700">Admins / logos</p>
+                            <p className="text-sm font-semibold text-amber-700">Administradores</p>
                             <FaShieldAlt className="text-amber-700" />
                         </div>
-                        <p className="mt-2 text-2xl font-bold text-amber-950">{totalAdmins} / {conLogo}</p>
+                        <p className="mt-2 text-2xl font-bold text-amber-950">{totalAdmins}</p>
                     </div>
                 </section>
 
