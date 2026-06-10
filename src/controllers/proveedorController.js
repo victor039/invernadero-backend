@@ -117,6 +117,7 @@ exports.actualizarProveedor = async (req, res) => {
             telefono,
             direccion
         })
+        await proveedor.reload()
 
         res.json({
             mensaje: 'Proveedor actualizado',
@@ -146,6 +147,12 @@ exports.eliminarProveedor = async (req, res) => {
             mensaje: 'Proveedor eliminado'
         })
     } catch (error) {
+        if (error.name === 'SequelizeForeignKeyConstraintError') {
+            return res.status(409).json({
+                mensaje: 'No se puede eliminar este proveedor porque tiene plantas relacionadas'
+            })
+        }
+
         res.status(500).json({
             mensaje: 'Error al eliminar proveedor',
             error: error.message

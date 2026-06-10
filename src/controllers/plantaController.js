@@ -1,3 +1,6 @@
+const fs = require('fs')
+const path = require('path')
+
 const Planta = require('../models/Planta')
 const {
     limpiarTexto,
@@ -8,6 +11,19 @@ const {
     validarSinSoloNumeros,
     validarPayload
 } = require('../utils/validaciones')
+
+const rutaUploads = path.join(__dirname, '../../uploads')
+
+const eliminarArchivoSubido = (archivo) => {
+    if (!archivo || typeof archivo !== 'string') return
+
+    const nombreArchivo = path.basename(archivo)
+    const rutaArchivo = path.join(rutaUploads, nombreArchivo)
+
+    if (rutaArchivo.startsWith(rutaUploads) && fs.existsSync(rutaArchivo)) {
+        fs.unlinkSync(rutaArchivo)
+    }
+}
 
 const normalizarPlanta = (body, parcial = false) => {
     const datos = {}
@@ -155,12 +171,13 @@ exports.actualizarPlanta = async (req, res) => {
 
             return res.status(404).json({
 
-                mensaje: 'Planta no encontrada'
+            mensaje: 'Planta no encontrada'
 
-            })
+        })
 
         }
 
+        const imagenAnterior = planta.imagen
         const datosActualizar = normalizarPlanta(req.body, true)
         validarPlanta(datosActualizar, true)
 
@@ -171,6 +188,11 @@ exports.actualizarPlanta = async (req, res) => {
         }
 
         await planta.update(datosActualizar)
+        await planta.reload()
+
+        if (req.file && imagenAnterior && imagenAnterior !== planta.imagen) {
+            eliminarArchivoSubido(imagenAnterior)
+        }
 
         res.json({
 
@@ -209,7 +231,9 @@ exports.eliminarPlanta = async (req, res) => {
 
         }
 
+        const imagenAnterior = planta.imagen
         await planta.destroy()
+        eliminarArchivoSubido(imagenAnterior)
 
         res.json({
 
@@ -220,6 +244,12 @@ exports.eliminarPlanta = async (req, res) => {
     } catch (error) {
 
         console.log(error)
+
+        if (error.name === 'SequelizeForeignKeyConstraintError') {
+            return res.status(409).json({
+                mensaje: 'No se puede eliminar esta planta porque tiene ventas o movimientos relacionados'
+            })
+        }
 
         res.status(500).json({
 

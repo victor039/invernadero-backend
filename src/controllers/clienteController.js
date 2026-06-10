@@ -116,6 +116,7 @@ exports.actualizarCliente = async (req, res) => {
             telefono,
             direccion
         })
+        await cliente.reload()
 
         res.json({
             mensaje: 'Cliente actualizado',
@@ -145,6 +146,12 @@ exports.eliminarCliente = async (req, res) => {
             mensaje: 'Cliente eliminado'
         })
     } catch (error) {
+        if (error.name === 'SequelizeForeignKeyConstraintError') {
+            return res.status(409).json({
+                mensaje: 'No se puede eliminar este cliente porque tiene ventas relacionadas'
+            })
+        }
+
         res.status(500).json({
             mensaje: 'Error al eliminar cliente',
             error: error.message

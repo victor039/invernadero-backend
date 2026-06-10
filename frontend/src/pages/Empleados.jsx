@@ -174,7 +174,7 @@ function Empleados() {
 
             limpiar()
             setBusqueda('')
-            obtenerEmpleados()
+            await obtenerEmpleados()
         } catch (error) {
             console.log(error)
             Swal.fire('Error', error.response?.data?.mensaje || 'No se pudo guardar el empleado', 'error')
@@ -237,7 +237,7 @@ function Empleados() {
                     : 'Empleado eliminado correctamente.',
                 'success'
             )
-            obtenerEmpleados()
+            await obtenerEmpleados()
         } catch (error) {
             console.log(error)
             Swal.fire('Error', error.response?.data?.mensaje || 'No se pudo eliminar el empleado', 'error')
@@ -327,7 +327,7 @@ function Empleados() {
                         <p className="mt-1 min-h-5 text-xs text-red-600">{errores.contraseña}</p>
                     </div>
                     <div className="flex gap-2">
-                        <button disabled={guardando} className="flex h-11 flex-1 items-center justify-center gap-2 rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white hover:bg-emerald-800 disabled:bg-slate-400">
+                        <button type="submit" disabled={guardando} className="flex h-11 flex-1 items-center justify-center gap-2 rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white hover:bg-emerald-800 disabled:bg-slate-400">
                             <FaPlus />
                             {editandoId ? 'Actualizar' : 'Crear'}
                         </button>
@@ -400,8 +400,8 @@ function Empleados() {
                                     </td>
                                     <td className="px-3 py-4">
                                         <div className="flex justify-end gap-2">
-                                            <button onClick={() => editar(empleado)} className="rounded-md bg-blue-600 p-2 text-white hover:bg-blue-700" aria-label="Editar empleado" title="Editar empleado"><FaEdit /></button>
-                                            <button onClick={() => eliminar(empleado)} className="rounded-md bg-red-600 p-2 text-white hover:bg-red-700" aria-label="Eliminar empleado" title="Eliminar empleado"><FaTrash /></button>
+                                            <button type="button" onClick={() => editar(empleado)} className="rounded-md bg-blue-600 p-2 text-white hover:bg-blue-700" aria-label="Editar empleado" title="Editar empleado"><FaEdit /></button>
+                                            <button type="button" onClick={() => eliminar(empleado)} className="rounded-md bg-red-600 p-2 text-white hover:bg-red-700" aria-label="Eliminar empleado" title="Eliminar empleado"><FaTrash /></button>
                                         </div>
                                     </td>
                                 </tr>

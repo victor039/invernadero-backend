@@ -141,7 +141,7 @@ function Plantas() {
                 Swal.fire('Listo', 'Planta creada', 'success')
             }
 
-            obtenerPlantas()
+            await obtenerPlantas()
             limpiar()
         } catch (error) {
             console.log(error)
@@ -188,7 +188,7 @@ function Plantas() {
                 headers: { Authorization: `Bearer ${token}` }
             })
             Swal.fire('Eliminada', 'Planta eliminada', 'success')
-            obtenerPlantas()
+            await obtenerPlantas()
         } catch (error) {
             console.log(error)
             Swal.fire('Error', 'No se pudo eliminar', 'error')
@@ -381,7 +381,7 @@ function Plantas() {
                                     </div>
 
                                     <div className="mt-5 space-y-2">
-                                    <button className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-emerald-500 px-4 text-sm font-bold text-slate-950 transition hover:bg-emerald-400">
+                                    <button type="submit" className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-emerald-500 px-4 text-sm font-bold text-slate-950 transition hover:bg-emerald-400">
                                         <FaCheckCircle />
                                         {modoEdicion ? 'Actualizar' : 'Guardar'}
                                     </button>
@@ -479,8 +479,8 @@ function Plantas() {
                                         </td>
                                         <td className="px-3 py-4">
                                             <div className="flex justify-end gap-2">
-                                                <button onClick={(e) => { e.stopPropagation(); editar(planta); }} className="rounded-md bg-blue-600 p-2 text-white hover:bg-blue-700 relative z-20" aria-label="Editar planta" title="Editar planta"><FaEdit /></button>
-                                                <button onClick={(e) => { e.stopPropagation(); eliminar(planta.id_planta); }} className="rounded-md bg-red-600 p-2 text-white hover:bg-red-700 relative z-20" aria-label="Eliminar planta" title="Eliminar planta"><FaTrash /></button>
+                                                <button type="button" onClick={(e) => { e.stopPropagation(); editar(planta); }} className="rounded-md bg-blue-600 p-2 text-white hover:bg-blue-700 relative z-20" aria-label="Editar planta" title="Editar planta"><FaEdit /></button>
+                                                <button type="button" onClick={(e) => { e.stopPropagation(); eliminar(planta.id_planta); }} className="rounded-md bg-red-600 p-2 text-white hover:bg-red-700 relative z-20" aria-label="Eliminar planta" title="Eliminar planta"><FaTrash /></button>
                                             </div>
                                         </td>
                                     </tr>

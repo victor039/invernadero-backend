@@ -92,7 +92,7 @@ function Clientes() {
 
             limpiar()
             setBusqueda('')
-            obtenerClientes()
+            await obtenerClientes()
         } catch (error) {
             console.log(error)
             Swal.fire('Error', error.response?.data?.mensaje || 'No se pudo guardar el cliente', 'error')
@@ -132,7 +132,7 @@ function Clientes() {
         try {
             await api.delete(`/clientes/${cliente.id_cliente}`, { headers })
             Swal.fire('Eliminado', 'Cliente eliminado', 'success')
-            obtenerClientes()
+            await obtenerClientes()
         } catch (error) {
             console.log(error)
             Swal.fire('Error', 'No se pudo eliminar el cliente', 'error')
@@ -216,7 +216,7 @@ function Clientes() {
                         </div>
 
                         <div className="flex gap-2">
-                            <button disabled={guardando} className="flex h-11 flex-1 items-center justify-center gap-2 rounded-md bg-cyan-700 px-4 text-sm font-semibold text-white hover:bg-cyan-800 disabled:bg-slate-400">
+                            <button type="submit" disabled={guardando} className="flex h-11 flex-1 items-center justify-center gap-2 rounded-md bg-cyan-700 px-4 text-sm font-semibold text-white hover:bg-cyan-800 disabled:bg-slate-400">
                                 <FaPlus />
                                 {editandoId ? 'Actualizar' : 'Guardar'}
                             </button>
@@ -267,8 +267,8 @@ function Clientes() {
                                         <td className="px-3 py-4 text-slate-500">{cliente.direccion || 'Sin dirección'}</td>
                                         <td className="px-3 py-4">
                                             <div className="flex justify-end gap-2">
-                                                <button onClick={() => editar(cliente)} className="rounded-md bg-blue-600 p-2 text-white hover:bg-blue-700" aria-label="Editar cliente" title="Editar cliente"><FaEdit /></button>
-                                                <button onClick={() => eliminar(cliente)} className="rounded-md bg-red-600 p-2 text-white hover:bg-red-700" aria-label="Eliminar cliente" title="Eliminar cliente"><FaTrash /></button>
+                                                <button type="button" onClick={() => editar(cliente)} className="rounded-md bg-blue-600 p-2 text-white hover:bg-blue-700" aria-label="Editar cliente" title="Editar cliente"><FaEdit /></button>
+                                                <button type="button" onClick={() => eliminar(cliente)} className="rounded-md bg-red-600 p-2 text-white hover:bg-red-700" aria-label="Eliminar cliente" title="Eliminar cliente"><FaTrash /></button>
                                             </div>
                                         </td>
                                     </tr>

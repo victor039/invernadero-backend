@@ -189,6 +189,7 @@ exports.actualizarEmpleado = async (req, res) => {
             })
         }
 
+        const fotoAnterior = empleado.foto
         const { nombre, apellido, correo, telefono, foto, usuario, contraseña, password, id_rol } = normalizarEmpleado(req.body)
         validarEmpleado(
             { nombre, apellido, correo, telefono, usuario, contraseña, password, id_rol },
@@ -241,6 +242,11 @@ exports.actualizarEmpleado = async (req, res) => {
         }
 
         await empleado.update(datosActualizar)
+        await empleado.reload()
+
+        if (fotoPerfil && fotoAnterior && fotoPerfil !== fotoAnterior) {
+            eliminarFotoPerfil(fotoAnterior)
+        }
 
         res.json({
             mensaje: 'Empleado actualizado',

@@ -92,7 +92,7 @@ function Proveedores() {
 
             limpiar()
             setBusqueda('')
-            obtenerProveedores()
+            await obtenerProveedores()
         } catch (error) {
             console.log(error)
             Swal.fire('Error', error.response?.data?.mensaje || 'No se pudo guardar el proveedor', 'error')
@@ -132,7 +132,7 @@ function Proveedores() {
         try {
             await api.delete(`/proveedores/${proveedor.id_proveedor}`, { headers })
             Swal.fire('Eliminado', 'Proveedor eliminado', 'success')
-            obtenerProveedores()
+            await obtenerProveedores()
         } catch (error) {
             console.log(error)
             Swal.fire('Error', 'No se pudo eliminar el proveedor', 'error')
@@ -216,7 +216,7 @@ function Proveedores() {
                         </div>
 
                         <div className="flex gap-2">
-                            <button disabled={guardando} className="flex h-11 flex-1 items-center justify-center gap-2 rounded-md bg-indigo-700 px-4 text-sm font-semibold text-white hover:bg-indigo-800 disabled:bg-slate-400">
+                            <button type="submit" disabled={guardando} className="flex h-11 flex-1 items-center justify-center gap-2 rounded-md bg-indigo-700 px-4 text-sm font-semibold text-white hover:bg-indigo-800 disabled:bg-slate-400">
                                 <FaPlus />
                                 {editandoId ? 'Actualizar' : 'Guardar'}
                             </button>
@@ -267,8 +267,8 @@ function Proveedores() {
                                         <td className="px-3 py-4 text-slate-500">{proveedor.direccion || 'Sin dirección'}</td>
                                         <td className="px-3 py-4">
                                             <div className="flex justify-end gap-2">
-                                                <button onClick={() => editar(proveedor)} className="rounded-md bg-blue-600 p-2 text-white hover:bg-blue-700" aria-label="Editar proveedor" title="Editar proveedor"><FaEdit /></button>
-                                                <button onClick={() => eliminar(proveedor)} className="rounded-md bg-red-600 p-2 text-white hover:bg-red-700" aria-label="Eliminar proveedor" title="Eliminar proveedor"><FaTrash /></button>
+                                                <button type="button" onClick={() => editar(proveedor)} className="rounded-md bg-blue-600 p-2 text-white hover:bg-blue-700" aria-label="Editar proveedor" title="Editar proveedor"><FaEdit /></button>
+                                                <button type="button" onClick={() => eliminar(proveedor)} className="rounded-md bg-red-600 p-2 text-white hover:bg-red-700" aria-label="Eliminar proveedor" title="Eliminar proveedor"><FaTrash /></button>
                                             </div>
                                         </td>
                                     </tr>
