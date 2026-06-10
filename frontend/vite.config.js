@@ -3,12 +3,42 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
 import tailwindcss from '@tailwindcss/vite'
+import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
 
   plugins: [
     react(),
-    tailwindcss()
+    tailwindcss(),
+    VitePWA({
+      registerType: 'autoUpdate',
+      includeAssets: [
+        'favicon.svg',
+        'icons.svg'
+      ],
+      manifest: {
+        name: 'Invernadero',
+        short_name: 'Invernadero',
+        description: 'Panel administrativo y punto de venta del invernadero.',
+        theme_color: '#020617',
+        background_color: '#020617',
+        display: 'standalone',
+        start_url: '/',
+        scope: '/',
+        icons: [
+          {
+            src: '/favicon.svg',
+            sizes: 'any',
+            type: 'image/svg+xml',
+            purpose: 'any maskable'
+          }
+        ]
+      },
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,svg,ico,png,woff2}'],
+        navigateFallback: '/index.html'
+      }
+    })
   ],
   base: '/'
 
