@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
-import { FaBars, FaBell, FaBoxOpen, FaBriefcase, FaCashRegister, FaChartLine, FaCheckDouble, FaChevronRight, FaCrown, FaDatabase, FaHandHoldingUsd, FaHeadset, FaHome, FaLeaf, FaPowerOff, FaRocket, FaSave, FaSeedling, FaShieldAlt, FaShippingFast, FaStar, FaTimes, FaUserAstronaut, FaUserCog, FaUserFriends, FaUserTie, FaUsers } from 'react-icons/fa'
+import { FaBars, FaBell, FaBoxOpen, FaBriefcase, FaCashRegister, FaChartLine, FaCheckDouble, FaChevronRight, FaCrown, FaDatabase, FaHandHoldingUsd, FaHeadset, FaHome, FaLeaf, FaPowerOff, FaRocket, FaSave, FaShieldAlt, FaShippingFast, FaStar, FaTimes, FaUserAstronaut, FaUserCog, FaUserFriends, FaUserTie, FaUsers } from 'react-icons/fa'
 import Swal from 'sweetalert2'
 import { guardarPerfilLocal } from '../utils/perfilLocal'
 import api from '../services/api'
@@ -12,6 +12,7 @@ const formatoMonedaNotificacion = new Intl.NumberFormat('es-MX', {
 })
 
 const API_ORIGIN = (import.meta.env.VITE_API_URL || 'https://invernadero-backend-pfgt.onrender.com/api').replace(/\/api\/?$/, '')
+const logoPath = '/naturaleza-viva-logo.svg'
 const obtenerFotoPerfilSrc = (foto) => {
     if (!foto) return ''
     if (foto.startsWith('data:image/') || foto.startsWith('http')) return foto
@@ -374,8 +375,8 @@ function DashboardLayout({ children }) {
         <div className="min-h-screen overflow-x-hidden bg-slate-100 text-slate-900">
             <aside className="fixed inset-y-0 left-0 z-20 hidden w-72 overflow-hidden border-r border-slate-800 bg-slate-950 px-5 py-6 text-white lg:flex lg:flex-col">
                 <div className="flex items-center gap-3 border-b border-white/10 pb-6">
-                    <div className={`flex h-11 w-11 items-center justify-center rounded-md ${tema.logo}`}>
-                        <FaSeedling />
+                    <div className={`flex h-11 w-11 items-center justify-center overflow-hidden rounded-md ${tema.logo}`}>
+                        <img src={logoPath} alt="Naturaleza Viva" className="h-full w-full object-cover" />
                     </div>
 
                     <div>
@@ -441,9 +442,9 @@ function DashboardLayout({ children }) {
                     <div className="flex items-center justify-between gap-3">
                         <div className="min-w-0">
                             <div className="flex items-center gap-3">
-                                <div className={`flex h-10 w-10 items-center justify-center rounded-md ${tema.logoMovil}`}>
-                                    <FaSeedling />
-                                </div>
+                            <div className={`flex h-10 w-10 items-center justify-center overflow-hidden rounded-md ${tema.logoMovil}`}>
+                                <img src={logoPath} alt="Naturaleza Viva" className="h-full w-full object-cover" />
+                            </div>
                                 <div className="min-w-0">
                                     <p className="truncate font-bold">Invernadero</p>
                                     <p className="truncate text-xs text-slate-500">{tema.panel}</p>
@@ -590,8 +591,8 @@ function DashboardLayout({ children }) {
                     >
                         <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
                             <div className="flex items-center gap-3">
-                                <div className={`flex h-10 w-10 items-center justify-center rounded-md ${tema.logo}`}>
-                                    <FaSeedling />
+                                <div className={`flex h-10 w-10 items-center justify-center overflow-hidden rounded-md ${tema.logo}`}>
+                                    <img src={logoPath} alt="Naturaleza Viva" className="h-full w-full object-cover" />
                                 </div>
                                 <div>
                                     <p className="font-bold">Invernadero</p>

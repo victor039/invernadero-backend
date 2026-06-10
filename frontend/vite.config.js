@@ -13,7 +13,7 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: [
-        'favicon.svg',
+        'naturaleza-viva-logo.svg',
         'icons.svg'
       ],
       manifest: {
@@ -27,7 +27,7 @@ export default defineConfig({
         scope: '/',
         icons: [
           {
-            src: '/favicon.svg',
+            src: '/naturaleza-viva-logo.svg',
             sizes: 'any',
             type: 'image/svg+xml',
             purpose: 'any maskable'
